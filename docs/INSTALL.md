@@ -41,8 +41,8 @@ Gdy chcesz wgrać kod ręcznie (np. wersja niewypchnięta).
 
 1. Włącz dostęp do share `addons` — najprościej add-on **Samba share** albo
    **Advanced SSH & Web Terminal**.
-2. Skopiuj **całą zawartość repo** (korzeń = katalog add-onu; `config.yaml` musi
-   leżeć bezpośrednio w środku) do nowego folderu:
+2. Skopiuj zawartość podkatalogu **`face_recognition/`** z repo (to katalog
+   add-onu; `config.yaml` musi leżeć bezpośrednio w środku) do `/addons/face_recognition/`:
    ```
    /addons/face_recognition/
    ├── config.yaml
@@ -112,7 +112,7 @@ Gdy nie masz Supervisora (HA Container / test na PC) — bez Ingressu i bez
 auto-konfiguracji MQTT, wszystko przez env:
 
 ```bash
-docker build -t face-recognition:dev .
+docker build -t face-recognition:dev face_recognition/
 docker run --rm -p 8099:8099 \
   -v "$PWD/data:/data" \
   -e FACE_GO2RTC_URL="http://IP_HOSTA:1984" \

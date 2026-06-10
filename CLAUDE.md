@@ -29,7 +29,10 @@ jest istotne, bo każda z tych rzeczy ma kuszącą, ale gorszą alternatywę.
   Nie ładujemy kodu do wnętrza HA.
 - **Pakowanie: add-on HA OS z Ingress.** UI „wmontowane w HA" realizujemy przez
   Ingress (pozycja w panelu bocznym, bez osobnego logowania), nie przez
-  `panel_custom`/iframe z zewnętrznym URL.
+  `panel_custom`/iframe z zewnętrznym URL. Repo jest **repozytorium add-onów**
+  (`repository.yaml` w korzeniu, add-on w podkatalogu `face_recognition/`) — tak
+  wymaga sklep add-onów HA; add-on w samym korzeniu repo sklep odrzuca jako
+  „nieprawidłowe repozytorium".
 - **Sprzęt: Raspberry Pi 5 (4–8 GB), wszystko na jednym RPi obok HA.** To
   ogranicza budżet CPU/RAM — patrz „Wydajność".
 - **Dwa modele, kaskadowo: osoba → twarz.** Najpierw **lekki detektor osoby**
@@ -161,20 +164,20 @@ akcja = `notify` ze zdjęciem z encji `image`). Przykład: `docs/automation.yaml
 Wersje: **Python 3.12** (backend), **Node 24** + **Next.js 16** (frontend).
 
 ```bash
-# Backend (z katalogu backend/)
+# Backend (z katalogu face_recognition/backend/)
 uv venv --python 3.12          # utworzenie venv
 uv sync                        # instalacja zależności (z pyproject)
 uv run uvicorn app.main:app --reload --port 8099   # dev
 uv run pytest                  # testy (gate ruchu, ROI, API kamer)
 
-# Frontend (z katalogu frontend/, Node 24 przez nvm)
+# Frontend (z katalogu face_recognition/frontend/, Node 24 przez nvm)
 npm install
 npm run dev                    # tryb dev Next
 npm run build:export           # export + relativize.mjs (ścieżki względne pod Ingress)
 npm run build:backend          # build:export → kopia do backend/static (serwowany przez FastAPI)
 
-# Obraz add-onu (z korzenia repo) — multi-stage, arm64 + amd64
-docker build -t face-recognition:dev .
+# Obraz add-onu (z katalogu face_recognition/) — multi-stage, arm64 + amd64
+docker build -t face-recognition:dev face_recognition/
 docker run --rm -p 8099:8099 face-recognition:dev   # health: /api/health
 ```
 
@@ -226,10 +229,21 @@ tego nie naprawi (ścieżki absolutne ignorują bazę). Rozwiązane w Fazie 5:
 
 ## Struktura repo
 
-Korzeń repo = katalog add-onu (kontekst buildu Dockera widzi `backend/` i `frontend/`).
+Repo jest **repozytorium add-onów HA**: `repository.yaml` w korzeniu (to dodajesz
+w sklepie przez URL), a sam add-on siedzi w podkatalogu `face_recognition/`
+(kontekst buildu Dockera = ten podkatalog, widzi `backend/` i `frontend/`).
+Instalacja: `docs/INSTALL.md`.
 
 ```
-backend/    FastAPI (app/), pyproject (uv, py3.12), venv w .venv, statyk w static/
+repository.yaml      manifest repozytorium add-onów (name, url, maintainer)
+docs/                automation.yaml (przykładowe automatyzacje HA: push ze zdjęciem)
+                     INSTALL.md (instalacja add-onu w HA)
+face_recognition/    KATALOG ADD-ONU (config.yaml, build.yaml, Dockerfile, run.sh)
+ ├─ config.yaml      manifest add-onu (Ingress, port 8099, mqtt:want, map data, options/schema)
+ ├─ build.yaml       obraz bazowy per arch (python:3.12-slim)
+ ├─ Dockerfile       multi-stage: node:24 (build frontu) → python:3.12-slim (runtime)
+ ├─ run.sh           start: parsuje /data/options.json → env FACE_*, uvicorn na 0.0.0.0:$FACE_PORT
+ ├─ backend/   FastAPI (app/), pyproject (uv, py3.12), venv w .venv, statyk w static/
             app/: main (lifespan+routery+budowa kaskady), routes (API kamer),
             routes_persons (API osób + enrollment twarzy),
             routes_detections (API logu detekcji + snapshot), cameras (CRUD),
@@ -244,7 +258,7 @@ backend/    FastAPI (app/), pyproject (uv, py3.12), venv w .venv, statyk w stati
             app/ml/: models (pobieranie/ścieżki ONNX), person (MobileNet-SSD),
             face (SCRFD det_500m), recognize (ArcFace w600k_mbf), __init__ (roi_crop);
             tests/ (pytest, conftest = fixture client z kaskadą off)
-frontend/   Next.js 16 (App Router, Tailwind v4), output:'export' → build:backend
+ └─ frontend/ Next.js 16 (App Router, Tailwind v4), output:'export' → build:backend
             Styl: ciemna konsola operacyjna (dark-ops) — jeden motyw na tokenach
             CSS w globals.css (@theme: bg/surface/border/fg/fg-muted/accent #22c55e/
             danger/warn), bez dublowania light/dark:. Fonty Fira Sans/Fira Code przez
@@ -257,11 +271,6 @@ frontend/   Next.js 16 (App Router, Tailwind v4), output:'export' → build:back
             FaceEnroll — detekcja+podgląd ramki), cameras/ (CamerasView,
             CameraCard, RoiEditor — rysowanie ROI prostokąt/wielokąt na canvas),
             events/ (EventsView — log detekcji: badge outcome, score, miniatura)
-docs/        automation.yaml (przykładowe automatyzacje HA: push ze zdjęciem)
-config.yaml  manifest add-onu (Ingress, port 8099, mqtt:want, map data, options/schema)
-build.yaml   obraz bazowy per arch (python:3.12-slim)
-Dockerfile   multi-stage: node:24 (build frontu) → python:3.12-slim (runtime)
-run.sh       start: parsuje /data/options.json → env FACE_*, uvicorn na 0.0.0.0:$FACE_PORT
 ```
 
 ## Pułapki specyficzne dla tego projektu

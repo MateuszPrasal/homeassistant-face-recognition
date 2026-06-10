@@ -8,11 +8,15 @@ Plan wdrożenia fazami: [`PLAN.md`](PLAN.md).
 
 ## Struktura
 
+Repo jest **repozytorium add-onów HA** — `repository.yaml` w korzeniu, add-on
+w podkatalogu `face_recognition/`.
+
 ```
-backend/    FastAPI — REST API, worker ML (kaskada osoba→twarz), serwowanie statyku
-frontend/   Next.js (output: export) — UI panelu, osadzony w HA przez Ingress
-addon/      Pakowanie jako add-on HA OS (config.yaml, Dockerfile, run)
-docs/       Przykłady (automatyzacje HA itp.)
+repository.yaml         manifest repozytorium add-onów (dodajesz URL w sklepie HA)
+docs/                   INSTALL.md + automatyzacje HA (push ze zdjęciem)
+face_recognition/       katalog add-onu (config.yaml, build.yaml, Dockerfile, run.sh)
+  backend/   FastAPI — REST API, worker ML (kaskada osoba→twarz), serwowanie statyku
+  frontend/  Next.js (output: export) — UI panelu, osadzony w HA przez Ingress
 ```
 
 ## Wymagania dev
@@ -24,13 +28,13 @@ docs/       Przykłady (automatyzacje HA itp.)
 
 ```bash
 # Backend
-cd backend
+cd face_recognition/backend
 uv venv --python 3.12
 uv sync
 uv run uvicorn app.main:app --reload --port 8099
 
 # Frontend (osobny terminal, Node 24)
-cd frontend
+cd face_recognition/frontend
 npm install
 npm run dev        # tryb dev Next
 npm run build      # statyczny export do ../backend/static

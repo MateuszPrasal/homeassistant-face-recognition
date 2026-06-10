@@ -1,5 +1,5 @@
 # Python
-backend/.venv/
+face_recognition/backend/.venv/
 __pycache__/
 *.py[cod]
 .pytest_cache/
@@ -7,12 +7,12 @@ __pycache__/
 
 # Node / Next.js
 node_modules/
-frontend/.next/
-frontend/out/
+face_recognition/frontend/.next/
+face_recognition/frontend/out/
 .npm/
 
 # Build artefakty serwowane przez backend (budowane z frontu)
-backend/static/
+face_recognition/backend/static/
 
 # Dane runtime (SQLite, snapshoty, modele) — w add-onie idą do /data
 data/

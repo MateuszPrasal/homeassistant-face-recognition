@@ -1,0 +1,5 @@
+# Manifest repozytorium add-onów HA (to, co dodajesz w sklepie przez URL).
+# Sam add-on siedzi w podkatalogu face_recognition/ (z własnym config.yaml).
+name: Rozpoznawanie twarzy
+url: https://github.com/MateuszPrasal/homeassistant-face-recognition
+maintainer: Mateusz Prasał <mateusz.prasal@madmountain.io>
