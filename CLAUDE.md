@@ -105,9 +105,12 @@ Jeden kontener (add-on) zawiera:
 - `persons` — id, nazwa, utworzono.
 - `faces` — id, person_id, `embedding` (blob float32[512]), miniatura, źródłowe
   zdjęcie, utworzono. (Jedna osoba może mieć wiele embeddingów — różne ujęcia.)
-- `detections` (log, opcjonalnie) — id, camera_id, czas, `person_detected` (bool),
-  `face_detected` (bool), matched_person_id (nullable), score,
-  `outcome` (`ok` | `unknown_face` | `person_no_face`), ścieżka snapshotu.
+- `detections` (log, Faza 6) — id, camera_id, czas, `person_detected` (bool),
+  `face_detected` (bool), `matched_person_id` (FK `persons` `ON DELETE SET NULL`),
+  `matched_name` (zdenormalizowane — log przeżywa skasowanie osoby), score,
+  `outcome` (`ok` | `unknown_face` | `person_no_face`), `snapshot_path` (tylko gdy
+  ALERT faktycznie zapisany). Wpis przy **każdej wykrytej osobie**, niezależnie od
+  cooldownu — do strojenia progu cosine. Auto-przycinanie do `FACE_MAX_DETECTIONS`.
 
 ROI to znormalizowany wielokąt/prostokąt per kamera (kolumna `roi` w `cameras`).
 Jest pierwszej klasy: konfigurowalny od Fazy 1 (najpierw przez config/API),
@@ -191,6 +194,10 @@ parsując `/data/options.json`):
   bez pobierania modeli).
 - Progi kaskady: `FACE_PERSON_CONF` (0.5), `FACE_DET_THRESH` (0.4 — detektor twarzy),
   `FACE_MATCH_THRESHOLD` (0.4 — cosine do galerii; ~0.35–0.5 do strojenia).
+- `FACE_INFERENCE_CONCURRENCY` (1) — ile kaskad ONNX naraz dla **wszystkich** kamer
+  (wspólny semafor w `WorkerManager`). Na RPi zostaw 1; podbij przy mocniejszym CPU.
+- `FACE_MAX_DETECTIONS` (1000) — ile wpisów logu `detections` trzymać (auto-przycinanie
+  najstarszych przy zapisie). `0` = bez limitu.
 - `FACE_CORS_ORIGINS` — lista originów CORS (po przecinku). Pod Ingress front i API
   to ten sam origin, więc domyślnie pusto. Pod dev ustaw `http://localhost:3000`.
 - MQTT: `FACE_MQTT_ENABLE` (`1`/`0`), `FACE_MQTT_HOST` (gdy ustawiony — pomija
@@ -224,23 +231,27 @@ Korzeń repo = katalog add-onu (kontekst buildu Dockera widzi `backend/` i `fron
 ```
 backend/    FastAPI (app/), pyproject (uv, py3.12), venv w .venv, statyk w static/
             app/: main (lifespan+routery+budowa kaskady), routes (API kamer),
-            routes_persons (API osób + enrollment twarzy), cameras (CRUD),
-            persons (repo osób/twarzy + galeria), db (SQLite), schemas,
-            roi (model+maska), snapshot (go2rtc), motion (gate ruchu),
-            matching (cosine brute-force), cascade (osoba→twarz→embedding→match),
+            routes_persons (API osób + enrollment twarzy),
+            routes_detections (API logu detekcji + snapshot), cameras (CRUD),
+            persons (repo osób/twarzy + galeria), detections (repo logu + przycinanie),
+            db (SQLite), schemas, roi (model+maska), snapshot (go2rtc),
+            motion (gate ruchu), matching (cosine brute-force),
+            cascade (osoba→twarz→embedding→match),
             mqtt (klient paho + discovery + publikacja encji HA),
             static (serwowanie frontu + wstrzykiwanie <base href> z X-Ingress-Path),
-            worker (pętle akwizycji + cooldown + zapis ALERT-ów + publikacja MQTT);
+            worker (pętle akwizycji + wspólny semafor inferencji + cooldown +
+            zapis ALERT-ów + log detekcji + publikacja MQTT);
             app/ml/: models (pobieranie/ścieżki ONNX), person (MobileNet-SSD),
             face (SCRFD det_500m), recognize (ArcFace w600k_mbf), __init__ (roi_crop);
             tests/ (pytest, conftest = fixture client z kaskadą off)
 frontend/   Next.js 16 (App Router, Tailwind), output:'export' → build:backend
             scripts/relativize.mjs (post-build: ścieżki assetów względne pod Ingress)
             lib/: api (klient REST, ścieżki względne pod Ingress), types
-            app/: page (SPA z zakładkami Osoby/Kamery — bez routingu klienta)
+            app/: page (SPA z zakładkami Osoby/Kamery/Zdarzenia — bez routingu klienta)
             components/: ui (prymitywy), persons/ (PersonsView, PersonCard,
             FaceEnroll — detekcja+podgląd ramki), cameras/ (CamerasView,
-            CameraCard, RoiEditor — rysowanie ROI prostokąt/wielokąt na canvas)
+            CameraCard, RoiEditor — rysowanie ROI prostokąt/wielokąt na canvas),
+            events/ (EventsView — log detekcji: badge outcome, score, miniatura)
 docs/        automation.yaml (przykładowe automatyzacje HA: push ze zdjęciem)
 config.yaml  manifest add-onu (Ingress, port 8099, mqtt:want, map data, options/schema)
 build.yaml   obraz bazowy per arch (python:3.12-slim)

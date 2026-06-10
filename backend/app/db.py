@@ -42,6 +42,24 @@ CREATE TABLE IF NOT EXISTS faces (
     created_at TEXT    NOT NULL DEFAULT (datetime('now'))
 );
 CREATE INDEX IF NOT EXISTS idx_faces_person ON faces(person_id);
+
+-- Log detekcji (Faza 6) — do strojenia progu cosine i podglądu „co widziała
+-- kamera". Wpisywany przy każdej wykrytej osobie (outcome != none). Przycinany
+-- do ostatnich N (FACE_MAX_DETECTIONS). matched_person_id nullable (gdy nieznany
+-- / brak twarzy); snapshot_path tylko dla zapisanych ALERT-ów.
+CREATE TABLE IF NOT EXISTS detections (
+    id                INTEGER PRIMARY KEY AUTOINCREMENT,
+    camera_id         INTEGER NOT NULL,
+    created_at        TEXT    NOT NULL DEFAULT (datetime('now')),
+    person_detected   INTEGER NOT NULL,
+    face_detected     INTEGER NOT NULL,
+    matched_person_id INTEGER REFERENCES persons(id) ON DELETE SET NULL,
+    matched_name      TEXT,
+    score             REAL    NOT NULL DEFAULT 0.0,
+    outcome           TEXT    NOT NULL,
+    snapshot_path     TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_detections_id ON detections(id DESC);
 """
 
 _conn: sqlite3.Connection | None = None

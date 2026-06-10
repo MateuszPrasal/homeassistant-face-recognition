@@ -161,11 +161,32 @@ się odpalić i zobaczyć. Kontekst i decyzje: `CLAUDE.md`.
 - Dług: brak realnego testu na żywym HA OS (lokalnie symulacja przez nagłówek
   `X-Ingress-Path`). Retencja zdjęć ALERT-ów i strojenie progów — Faza 6.
 
-## Faza 6 — Wiele kamer i strojenie
+## Faza 6 — Wiele kamer i strojenie ✅ ZROBIONE
 
-- Wiele kamer: lista w bazie, pętla per kamera, wspólny budżet inferencji.
-- Strojenie progu cosine na realnych danych, log `detections` do analizy.
-- Opcjonalnie: drugi wyzwalacz z `binary_sensor` ruchu HA (szybsza reakcja).
+- [x] **Wiele kamer naraz.** Model danych i pętla per kamera były gotowe od Fazy 1;
+  teraz dochodzi **wspólny budżet inferencji** — `WorkerManager` trzyma jeden
+  `threading.Semaphore(FACE_INFERENCE_CONCURRENCY)` (domyślnie 1), a każdy worker
+  owija nim `cascade.process`. Bez tego N kamer odpalałoby N kaskad ONNX równolegle
+  i dusiło CPU RPi; semafor je serializuje (przy mocniejszym sprzęcie podbij env).
+- [x] **Log `detections`** (tabela + `app/detections.py` + `routes_detections.py`):
+  zapis przy **każdej wykrytej osobie** (nie tylko ALERT), niezależnie od cooldownu —
+  do strojenia progu cosine na realnych danych. Pola: `outcome`, `score`,
+  `matched_person_id` (FK `ON DELETE SET NULL`) + zdenormalizowane `matched_name`
+  (log przeżywa skasowanie osoby), `snapshot_path` (tylko gdy ALERT faktycznie
+  zapisany). Auto-przycinanie do `FACE_MAX_DETECTIONS` (domyślnie 1000) — log nie
+  puchnie w nieskończoność. `GET /api/detections` (filtr `camera_id`, limit) +
+  `GET /api/detections/{id}/snapshot` (z ochroną przed wyjściem poza `ALERTS_DIR`).
+- [x] **UI zakładka „Zdarzenia"** (`components/events/EventsView.tsx`): lista
+  ostatnich detekcji (czas lokalny, kamera, badge outcome, score, imię), miniatura
+  zapisanego snapshotu, filtr po kamerze, odświeżanie. Trzecia zakładka w SPA.
+- [x] Testy (`tests/test_detections.py`, 7): repo add/lista/kolejność, filtr po
+  kamerze, przycinanie do `MAX_DETECTIONS`, snapshot 404 bez zdjęcia, serwowanie
+  pliku, ochrona przed path-traversal. Razem 42 passed / 2 skipped. Build frontu OK.
+- Cel fazy osiągnięty: kilka kamer dzieli jeden budżet inferencji, każda detekcja
+  ląduje w logu z możliwością podglądu w UI — podstawa do strojenia progu.
+- Dług: drugi wyzwalacz z `binary_sensor` ruchu HA (szybsza reakcja) — świadomie
+  odłożony, snapshot co X s + gate ruchu wystarcza. Osobny, dłuższy cooldown dla
+  `person_no_face` i polityka retencji zdjęć ALERT-ów — nadal otwarte (niżej).
 
 ## Otwarte kwestie (do potwierdzenia w trakcie)
 
@@ -173,7 +194,9 @@ się odpalić i zobaczyć. Kontekst i decyzje: `CLAUDE.md`.
 - Próg cosine — wartość startowa i sposób strojenia (UI? config?).
 - `person_no_face`: osobny, dłuższy cooldown / minimalny czas obecności, żeby
   znajomy stojący chwilę tyłem nie generował lawiny alertów „osoba bez twarzy".
-- Czy logować wszystkie detekcje (`detections`), czy tylko zdarzenia.
+- ~~Czy logować wszystkie detekcje (`detections`), czy tylko zdarzenia.~~
+  Rozstrzygnięte (Faza 6): logujemy **każdą wykrytą osobę** (do strojenia progu),
+  z auto-przycinaniem do `FACE_MAX_DETECTIONS`.
 - Polityka retencji zdjęć nieznanych twarzy (ile trzymać, gdzie).
 - Pełny serwer Next (SSR) vs export statyczny — domyślnie export; zmiana tylko
   jeśli pojawi się realna potrzeba SSR.

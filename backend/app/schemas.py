@@ -79,3 +79,18 @@ class DetectResult(BaseModel):
     width: int
     height: int
     faces: list[DetectedFace]
+
+
+class Detection(BaseModel):
+    """Wpis logu detekcji (Faza 6) — do strojenia progu i podglądu zdarzeń."""
+
+    id: int
+    camera_id: int
+    created_at: str
+    person_detected: bool
+    face_detected: bool
+    matched_person_id: int | None = None
+    matched_name: str | None = None
+    score: float
+    outcome: str  # ok | unknown_face | person_no_face
+    has_snapshot: bool = False

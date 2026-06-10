@@ -11,6 +11,7 @@
 import type {
   Camera,
   CameraInput,
+  Detection,
   DetectResult,
   Face,
   Person,
@@ -115,3 +116,17 @@ export const deleteCamera = (id: number) =>
 // URL snapshotu (do <img src>). Cache-bust przez znacznik czasu.
 export const snapshotUrl = (id: number, bust?: number) =>
   apiUrl(`cameras/${id}/snapshot`) + (bust ? `?t=${bust}` : "");
+
+// Log detekcji (Faza 6) — podgląd zdarzeń, strojenie progu cosine.
+
+export const listDetections = (params?: { limit?: number; cameraId?: number }) => {
+  const q = new URLSearchParams();
+  if (params?.limit) q.set("limit", String(params.limit));
+  if (params?.cameraId != null) q.set("camera_id", String(params.cameraId));
+  const qs = q.toString();
+  return req<Detection[]>(`detections${qs ? `?${qs}` : ""}`);
+};
+
+// URL zdjęcia detekcji (do <img src>); jest tylko dla zapisanych ALERT-ów.
+export const detectionSnapshotUrl = (id: number) =>
+  apiUrl(`detections/${id}/snapshot`);

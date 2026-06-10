@@ -18,6 +18,7 @@ from . import config
 from . import db
 from .config import CORS_ORIGINS, ENABLE_CASCADE, STATIC_DIR
 from .routes import router as api_router
+from .routes_detections import router as detections_router
 from .routes_persons import router as persons_router
 from .static import mount_frontend
 from .worker import WorkerManager
@@ -116,6 +117,7 @@ def health_check() -> dict[str, str]:
 app.include_router(health)
 app.include_router(api_router)
 app.include_router(persons_router)
+app.include_router(detections_router)
 
 
 # Serwowanie frontu. Pod Ingress prefiks ścieżki jest dynamiczny — `mount_frontend`

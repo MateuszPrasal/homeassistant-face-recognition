@@ -21,8 +21,10 @@ def client(tmp_path, monkeypatch) -> TestClient:
         "app.db",
         "app.cameras",
         "app.persons",
+        "app.detections",
         "app.routes",
         "app.routes_persons",
+        "app.routes_detections",
         "app.main",
     ):
         importlib.reload(importlib.import_module(name))

@@ -66,3 +66,18 @@ export type DetectResult = {
 };
 
 export const DEFAULT_RECT_ROI: RectRoi = { shape: "rect", x: 0, y: 0, w: 1, h: 1 };
+
+export type Outcome = "ok" | "unknown_face" | "person_no_face";
+
+export type Detection = {
+  id: number;
+  camera_id: number;
+  created_at: string;
+  person_detected: boolean;
+  face_detected: boolean;
+  matched_person_id: number | null;
+  matched_name: string | null;
+  score: number;
+  outcome: Outcome;
+  has_snapshot: boolean;
+};

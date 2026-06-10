@@ -13,6 +13,8 @@ from dataclasses import dataclass, field
 
 import cv2
 
+from . import config
+from . import detections as det_repo
 from .cascade import Cascade
 from .config import ALERTS_DIR
 from .motion import MotionDetector, decode_jpeg
@@ -44,6 +46,8 @@ class CameraWorker:
     camera: Camera
     cascade: Cascade | None = None
     mqtt: MqttPublisher | None = None
+    # Współdzielony semafor inferencji (serializacja kaskady między kamerami).
+    inference_sem: threading.Semaphore | None = None
     status: CameraStatus = field(init=False)
 
     def __post_init__(self) -> None:
@@ -99,13 +103,21 @@ class CameraWorker:
 
     def _run_cascade(self, frame) -> None:
         assert self.cascade is not None
-        res = self.cascade.process(frame, self.camera.roi)
+        # Semafor serializuje inferencję między kamerami (budżet CPU na RPi).
+        if self.inference_sem is not None:
+            with self.inference_sem:
+                res = self.cascade.process(frame, self.camera.roi)
+        else:
+            res = self.cascade.process(frame, self.camera.roi)
         self.status.last_outcome = res.outcome
         self.status.last_match = res.known_name
         self.status.last_score = round(res.top_score, 3)
 
         if res.outcome == "none":
             return
+
+        snapshot_path: str | None = None
+        alert_published = False
 
         if res.outcome == "ok":
             log.info("Kamera %s: OK — %s (score=%.2f)",
@@ -114,24 +126,45 @@ class CameraWorker:
                 self.mqtt.publish_recognition(
                     self.camera, "ok", res.known_name, res.top_score, unverified=False
                 )
-            return
+        else:
+            # ALERT (unknown_face / person_no_face) — z cooldownem, żeby nie spamować.
+            now = time.monotonic()
+            if now - self._last_alert_mono < self.camera.cooldown_seconds:
+                log.info("Kamera %s: ALERT %s wyciszony (cooldown)", self.camera.id, res.outcome)
+            else:
+                self._last_alert_mono = now
+                self.status.last_alert = time.time()
+                snapshot_path = self._save_alert(res.image)
+                alert_published = True
+                if self.mqtt is not None:
+                    self.mqtt.publish_alert(
+                        self.camera, res.outcome, res.known_name, res.top_score, res.image
+                    )
+                log.warning(
+                    "Kamera %s: ALERT %s (osób=%d, twarzy=%d, score=%.2f) → %s",
+                    self.camera.id, res.outcome, res.persons, res.faces,
+                    res.top_score, snapshot_path,
+                )
 
-        # ALERT (unknown_face / person_no_face) — z cooldownem, żeby nie spamować.
-        now = time.monotonic()
-        if now - self._last_alert_mono < self.camera.cooldown_seconds:
-            log.info("Kamera %s: ALERT %s wyciszony (cooldown)", self.camera.id, res.outcome)
-            return
-        self._last_alert_mono = now
-        self.status.last_alert = time.time()
-        path = self._save_alert(res.image)
-        if self.mqtt is not None:
-            self.mqtt.publish_alert(
-                self.camera, res.outcome, res.known_name, res.top_score, res.image
+        # Log detekcji (do strojenia progu) — przy każdej wykrytej osobie,
+        # niezależnie od cooldownu. Snapshot tylko gdy ALERT faktycznie zapisany.
+        self._log_detection(res, snapshot_path)
+        _ = alert_published  # czytelność: rozróżnienie zapisanego ALERT-u
+
+    def _log_detection(self, res, snapshot_path: str | None) -> None:
+        try:
+            det_repo.add_detection(
+                camera_id=self.camera.id,
+                person_detected=res.persons > 0,
+                face_detected=res.faces > 0,
+                matched_person_id=res.known_person_id,
+                matched_name=res.known_name,
+                score=res.top_score,
+                outcome=res.outcome,
+                snapshot_path=snapshot_path,
             )
-        log.warning(
-            "Kamera %s: ALERT %s (osób=%d, twarzy=%d, score=%.2f) → %s",
-            self.camera.id, res.outcome, res.persons, res.faces, res.top_score, path,
-        )
+        except Exception as exc:  # noqa: BLE001 — log nie może wywrócić pętli
+            log.warning("Kamera %s: nie zapisano detekcji: %s", self.camera.id, exc)
 
     def _save_alert(self, image) -> str:
         """Zapisuje snapshot ALERT-u (źródło zdjęcia dla MQTT w Fazie 4)."""
@@ -150,6 +183,8 @@ class WorkerManager:
         self._lock = threading.Lock()
         self._cascade = cascade
         self._mqtt = mqtt
+        # Wspólny budżet inferencji dla wszystkich kamer (domyślnie 1 naraz).
+        self._inference_sem = threading.Semaphore(config.INFERENCE_CONCURRENCY)
 
     @property
     def cascade(self) -> Cascade | None:
@@ -164,7 +199,12 @@ class WorkerManager:
                 self._mqtt.publish_discovery(camera)
             if not camera.enabled:
                 return
-            worker = CameraWorker(camera, cascade=self._cascade, mqtt=self._mqtt)
+            worker = CameraWorker(
+                camera,
+                cascade=self._cascade,
+                mqtt=self._mqtt,
+                inference_sem=self._inference_sem,
+            )
             self._workers[camera.id] = worker
             worker.start()
 

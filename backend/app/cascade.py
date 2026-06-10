@@ -45,9 +45,19 @@ class CascadeResult:
         return self.outcome in ALERT_OUTCOMES
 
     @property
-    def known_name(self) -> str | None:
+    def _best_known(self) -> Match | None:
         known = [m for m in self.matches if m.known]
-        return max(known, key=lambda m: m.score).name if known else None
+        return max(known, key=lambda m: m.score) if known else None
+
+    @property
+    def known_name(self) -> str | None:
+        m = self._best_known
+        return m.name if m else None
+
+    @property
+    def known_person_id(self) -> int | None:
+        m = self._best_known
+        return m.person_id if m else None
 
 
 class Cascade:

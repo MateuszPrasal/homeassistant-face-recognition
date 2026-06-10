@@ -3,12 +3,14 @@
 import { useState } from "react";
 import PersonsView from "@/components/persons/PersonsView";
 import CamerasView from "@/components/cameras/CamerasView";
+import EventsView from "@/components/events/EventsView";
 
-type Tab = "persons" | "cameras";
+type Tab = "persons" | "cameras" | "events";
 
 const TABS: { id: Tab; label: string }[] = [
   { id: "persons", label: "Osoby" },
   { id: "cameras", label: "Kamery" },
+  { id: "events", label: "Zdarzenia" },
 ];
 
 export default function Home() {
@@ -37,7 +39,9 @@ export default function Home() {
         ))}
       </nav>
 
-      {tab === "persons" ? <PersonsView /> : <CamerasView />}
+      {tab === "persons" && <PersonsView />}
+      {tab === "cameras" && <CamerasView />}
+      {tab === "events" && <EventsView />}
     </main>
   );
 }
