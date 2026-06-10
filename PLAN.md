@@ -188,6 +188,30 @@ się odpalić i zobaczyć. Kontekst i decyzje: `CLAUDE.md`.
   odłożony, snapshot co X s + gate ruchu wystarcza. Osobny, dłuższy cooldown dla
   `person_no_face` i polityka retencji zdjęć ALERT-ów — nadal otwarte (niżej).
 
+## Stan na 2026-06-10 — wszystkie fazy (0–6) zrobione
+
+Plan przerobiony w całości. Smoke-test **pełnego obrazu Dockera** (nie tylko kodu
+lokalnie):
+
+- `docker build` przechodzi czysto, obraz ~399 MB. Multi-stage `node:24` (build
+  frontu) → `python:3.12-slim` (runtime), koła **aarch64** OK (onnxruntime,
+  opencv-headless, numpy itd.).
+- Kontener wstaje, `/api/health` → `{"status":"ok"}`. API na pustej bazie:
+  `/api/cameras`, `/api/persons`, `/api/detections` → `[]`.
+- **Ingress zweryfikowany w realnym obrazie**: bez nagłówka `<base href="/">`, z
+  `X-Ingress-Path` wstrzykiwany `<base href="…/api/hassio_ingress/<token>/">`.
+  **Zero** absolutnych `/_next/` w serwowanym `index.html`, asset `_next/...js`
+  serwuje się 200. Czyli relativize + base href z Fazy 5 działają po zbudowaniu.
+
+Czego smoke-test świadomie nie objął (uruchamiany z `FACE_ENABLE_CASCADE=0`,
+`FACE_MQTT_ENABLE=0`): realnej inferencji ML (pobranie modeli + kaskada na klatce
+z go2rtc) i publikacji MQTT na żywym brokerze. To wymaga środowiska z go2rtc i
+Mosquitto — naturalnie domknie się przy instalacji add-onu na HA OS.
+
+Następny realny krok (poza planem fazowym): instalacja add-onu na docelowym
+RPi 5 / HA OS i strojenie progów (cosine, `motion_threshold`, cooldowny) na
+prawdziwym obrazie z kamery — patrz otwarte kwestie niżej.
+
 ## Otwarte kwestie (do potwierdzenia w trakcie)
 
 - Wybór detektora osoby (YOLOv8n vs MobileNet-SSD) + próg pewności klasy `person`.
