@@ -4,6 +4,8 @@ Osobny serwis (add-on HA OS) rozpoznający twarze domowników na podstawie kamer
 IP. Z Home Assistant rozmawia przez MQTT. Architektura i decyzje: [`CLAUDE.md`](CLAUDE.md).
 Plan wdrożenia fazami: [`PLAN.md`](PLAN.md).
 
+**Instalacja w Home Assistant:** [`docs/INSTALL.md`](docs/INSTALL.md).
+
 ## Struktura
 
 ```
