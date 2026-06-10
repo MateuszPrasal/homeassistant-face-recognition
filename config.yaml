@@ -27,6 +27,20 @@ map:
 # Supervisor poda dane brokera MQTT (wykorzystamy w Fazie 4).
 services:
   - mqtt:want
-# Opcje konfiguracyjne dojdą w kolejnych fazach (kamera, próg, interwał).
-options: {}
-schema: {}
+# Globalne pokrętła. Kamery (źródło, ROI, interwał, cooldown) konfiguruje się
+# w UI add-onu i trzyma w SQLite — nie tutaj. run.sh mapuje te opcje na env
+# FACE_* (patrz run.sh).
+options:
+  log_level: info
+  go2rtc_url: "http://localhost:1984"
+  snapshot_timeout: 5.0
+  match_threshold: 0.4
+  person_conf: 0.5
+  det_thresh: 0.4
+schema:
+  log_level: list(debug|info|warning|error)
+  go2rtc_url: str
+  snapshot_timeout: float(0.5,)
+  match_threshold: float(0,1)
+  person_conf: float(0,1)
+  det_thresh: float(0,1)

@@ -9,8 +9,9 @@ WORKDIR /frontend
 COPY frontend/package.json frontend/package-lock.json ./
 RUN npm ci
 COPY frontend/ ./
-# `next build` z output:'export' tworzy /frontend/out
-RUN npm run build
+# `next build` (output:'export') → /frontend/out, potem relativize.mjs robi
+# ścieżki assetów względne (Ingress) — patrz scripts/relativize.mjs.
+RUN npm run build:export
 
 # ---- Stage 2: runtime (backend FastAPI + statyczny front) ----
 ARG BUILD_FROM=python:3.12-slim

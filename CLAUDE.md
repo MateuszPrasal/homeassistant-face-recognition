@@ -167,7 +167,8 @@ uv run pytest                  # testy (gate ruchu, ROI, API kamer)
 # Frontend (z katalogu frontend/, Node 24 przez nvm)
 npm install
 npm run dev                    # tryb dev Next
-npm run build:backend          # export statyczny → backend/static (serwowany przez FastAPI)
+npm run build:export           # export + relativize.mjs (ścieżki względne pod Ingress)
+npm run build:backend          # build:export → kopia do backend/static (serwowany przez FastAPI)
 
 # Obraz add-onu (z korzenia repo) — multi-stage, arm64 + amd64
 docker build -t face-recognition:dev .
@@ -177,10 +178,13 @@ docker run --rm -p 8099:8099 face-recognition:dev   # health: /api/health
 Backend serwuje statyczny front spod `STATIC_DIR` (env `FACE_STATIC_DIR`,
 domyślnie `backend/static`; w kontenerze `/app/static`).
 
-Env runtime:
+Env runtime (w add-onie część z nich ustawia `run.sh` z opcji `config.yaml`,
+parsując `/data/options.json`):
 - `FACE_DATA_DIR` — SQLite + dane (snapshoty ALERT-ów w `data/alerts`), w add-onie `/data`.
 - `FACE_PORT` (8099), `FACE_GO2RTC_URL` (baza API go2rtc, `http://localhost:1984`),
   `FACE_SNAPSHOT_TIMEOUT` (s).
+- `FACE_LOG_LEVEL` (`info`) — poziom logów (opcja add-onu `log_level`); idzie do
+  loggera `face` i do `--log-level` uvicorna.
 - `FACE_MODELS_DIR` — katalog modeli ONNX (lokalnie `backend/models`, w add-onie
   `/data/models`). Modele dociągają się przy pierwszym starcie.
 - `FACE_ENABLE_CASCADE` (`1`/`0`) — wyłącza kaskadę ML (testy/CI lecą z `0`,
@@ -207,8 +211,11 @@ Frontend (dev): Next na `:3000` bije w backend na `:8099` przez zmienną
 `create-next-app` wstawił `frontend/AGENTS.md` (i `CLAUDE.md` → `@AGENTS.md`) z
 twardą regułą: **Next 16 ma zmiany łamiące względem wiedzy treningowej — przed
 pisaniem kodu Next czytaj `node_modules/next/dist/docs/`**. Stosuj się do tego.
-Ustalone empirycznie: export wrzuca **absolutne** ścieżki `/_next/...` — pod
-Ingress wymaga to wstrzyknięcia `<base href>` z `X-Ingress-Path` (Faza 5).
+Ustalone empirycznie: export wrzuca **absolutne** ścieżki `/_next/...`, a runtime
+turbopacka ma na sztywno `t="/_next/"` do ładowania chunków — samo `<base href>`
+tego nie naprawi (ścieżki absolutne ignorują bazę). Rozwiązane w Fazie 5:
+`scripts/relativize.mjs` (post-build) robi wszystkie ścieżki **względne** (w tym
+ów `t`), a `app/static.py` wstrzykuje `<base href>` z `X-Ingress-Path`.
 
 ## Struktura repo
 
@@ -222,27 +229,31 @@ backend/    FastAPI (app/), pyproject (uv, py3.12), venv w .venv, statyk w stati
             roi (model+maska), snapshot (go2rtc), motion (gate ruchu),
             matching (cosine brute-force), cascade (osoba→twarz→embedding→match),
             mqtt (klient paho + discovery + publikacja encji HA),
+            static (serwowanie frontu + wstrzykiwanie <base href> z X-Ingress-Path),
             worker (pętle akwizycji + cooldown + zapis ALERT-ów + publikacja MQTT);
             app/ml/: models (pobieranie/ścieżki ONNX), person (MobileNet-SSD),
             face (SCRFD det_500m), recognize (ArcFace w600k_mbf), __init__ (roi_crop);
             tests/ (pytest, conftest = fixture client z kaskadą off)
 frontend/   Next.js 16 (App Router, Tailwind), output:'export' → build:backend
+            scripts/relativize.mjs (post-build: ścieżki assetów względne pod Ingress)
             lib/: api (klient REST, ścieżki względne pod Ingress), types
             app/: page (SPA z zakładkami Osoby/Kamery — bez routingu klienta)
             components/: ui (prymitywy), persons/ (PersonsView, PersonCard,
             FaceEnroll — detekcja+podgląd ramki), cameras/ (CamerasView,
             CameraCard, RoiEditor — rysowanie ROI prostokąt/wielokąt na canvas)
 docs/        automation.yaml (przykładowe automatyzacje HA: push ze zdjęciem)
-config.yaml  manifest add-onu (Ingress, port 8099, mqtt:want, map data)
+config.yaml  manifest add-onu (Ingress, port 8099, mqtt:want, map data, options/schema)
 build.yaml   obraz bazowy per arch (python:3.12-slim)
 Dockerfile   multi-stage: node:24 (build frontu) → python:3.12-slim (runtime)
-run.sh       start: uvicorn na 0.0.0.0:$FACE_PORT
+run.sh       start: parsuje /data/options.json → env FACE_*, uvicorn na 0.0.0.0:$FACE_PORT
 ```
 
 ## Pułapki specyficzne dla tego projektu
 
-- **Ingress + ścieżki absolutne** — patrz wyżej. Wszystko (assety, wywołania API
-  z frontu) liczone względem bazowej ścieżki podawanej przez Ingress, nie od `/`.
+- **Ingress + ścieżki absolutne** — rozwiązane (Faza 5): assety mają ścieżki
+  **względne** (`relativize.mjs`), wywołania API z frontu też (`lib/api.ts`), a
+  backend wstrzykuje `<base href>` z `X-Ingress-Path` (`app/static.py`). Nowe
+  odwołania do roota (`/coś`) w froncie znów to zepsują — trzymaj się względnych.
 - **arm64** — onnxruntime, opencv i modele muszą mieć działające koła/buildy na
   aarch64. Sprawdzaj to przy każdej zależności, nie zakładaj.
 - **go2rtc jako źródło klatek** — nie otwieraj RTSP samodzielnie, jeśli go2rtc

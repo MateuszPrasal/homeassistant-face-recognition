@@ -5,7 +5,8 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "build:backend": "next build && rm -rf ../backend/static && cp -r out ../backend/static",
+    "build:export": "next build && node scripts/relativize.mjs out",
+    "build:backend": "npm run build:export && rm -rf ../backend/static && cp -r out ../backend/static",
     "start": "next start",
     "lint": "eslint"
   },

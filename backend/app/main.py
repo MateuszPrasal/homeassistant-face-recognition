@@ -11,7 +11,6 @@ from contextlib import asynccontextmanager
 from fastapi import APIRouter, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
-from fastapi.staticfiles import StaticFiles
 
 from . import __version__
 from . import cameras as repo
@@ -20,10 +19,11 @@ from . import db
 from .config import CORS_ORIGINS, ENABLE_CASCADE, STATIC_DIR
 from .routes import router as api_router
 from .routes_persons import router as persons_router
+from .static import mount_frontend
 from .worker import WorkerManager
 
 log = logging.getLogger("face")
-log.setLevel(logging.INFO)
+log.setLevel(getattr(logging, config.LOG_LEVEL, logging.INFO))
 # httpx loguje każdy GET na INFO — w pętli akwizycji to zalew, wycisz do WARNING.
 logging.getLogger("httpx").setLevel(logging.WARNING)
 
@@ -118,13 +118,11 @@ app.include_router(api_router)
 app.include_router(persons_router)
 
 
-# Serwowanie frontu. Mount na "/" łapie wszystko, co nie trafiło wcześniej do /api.
-# StaticFiles(html=True) podaje index.html dla katalogów (trasy Next z trailingSlash).
-#
-# TODO (Faza 5 — Ingress): pod Ingress prefiks ścieżki jest dynamiczny, więc tu
-# dojdzie wstrzykiwanie <base href> z nagłówka X-Ingress-Path do odpowiedzi HTML.
-if STATIC_DIR.is_dir():
-    app.mount("/", StaticFiles(directory=STATIC_DIR, html=True), name="static")
+# Serwowanie frontu. Pod Ingress prefiks ścieżki jest dynamiczny — `mount_frontend`
+# wstrzykuje <base href> z nagłówka X-Ingress-Path do index.html (assety mają
+# ścieżki względne dzięki relativize.mjs). Mount na "/" łapie wszystko poza /api.
+if (STATIC_DIR / "index.html").is_file():
+    mount_frontend(app, STATIC_DIR)
 else:
 
     @app.get("/", response_class=HTMLResponse)

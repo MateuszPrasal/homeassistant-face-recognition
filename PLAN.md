@@ -135,12 +135,31 @@ się odpalić i zobaczyć. Kontekst i decyzje: `CLAUDE.md`.
 - Dług: brak realnego ACK z brokera w testach (atrapa). Strojenie cooldownu
   `person_no_face` (otwarta kwestia) i retencja zdjęć ALERT-ów — Faza 6.
 
-## Faza 5 — Pakowanie i hardening add-onu
+## Faza 5 — Pakowanie i hardening add-onu ✅ ZROBIONE
 
-- Dopięcie `config.yaml`/`build.yaml`, opcje konfiguracyjne, walidacja.
-- Trwałość SQLite i modeli w katalogu danych add-onu.
-- Obsługa restartów, błędów go2rtc/MQTT, sensowne logi.
-- Cel fazy: instalacja „od zera" na czystym HA OS działa powtarzalnie.
+- [x] **Pełny Ingress.** `frontend/scripts/relativize.mjs` (post-build) robi
+  ścieżki assetów **względne** (`/_next/` → `_next/`, root-assety bez wiodącego
+  `/`) — kryje też literał `t="/_next/"` w runtime turbopacka (ładowanie chunków).
+  Backend (`app/static.py`) wstrzykuje `<base href>` z nagłówka `X-Ingress-Path`
+  do `index.html` (`Cache-Control: no-store`). Bez Ingress baza = `/`.
+  Zweryfikowane: index z `<base href>`, assety serwowane (200), runtime
+  `t="_next/"`. Wpięte w `build:export`/`build:backend` i `Dockerfile`.
+- [x] **Opcje add-onu** (`config.yaml` options/schema): `log_level`, `go2rtc_url`,
+  `snapshot_timeout`, `match_threshold`, `person_conf`, `det_thresh`. Kamery (ROI,
+  źródło, interwał) zostają w SQLite/UI — nie w opcjach. `run.sh` parsuje
+  `/data/options.json` (czystym Pythonem — baza `python:slim` bez bashio) i
+  eksportuje `FACE_*`; `--log-level` do uvicorna, `FACE_LOG_LEVEL` do loggera.
+- [x] **Trwałość**: SQLite (`/data/face.sqlite`, WAL), modele (`/data/models`),
+  snapshoty ALERT-ów (`/data/alerts`) — katalogi tworzone na żądanie, `/data`
+  mapowane przez add-on. `init_db` robi `mkdir(parents)`.
+- [x] **Restart/odporność**: discovery MQTT republikowane na starcie (retained);
+  broker/go2rtc niedostępny nie blokuje startu (best-effort). Poziom logów z opcji.
+- [x] Testy `app/static.py` (base href, inject, escape) + integracyjny przez
+  TestClient (index pod Ingress, asset 200, health 200). Razem 35 passed / 2 skipped.
+- Cel fazy osiągnięty: front działa pod Ingress (względne ścieżki + base href),
+  opcje add-onu mapują się na env, dane przeżywają restart.
+- Dług: brak realnego testu na żywym HA OS (lokalnie symulacja przez nagłówek
+  `X-Ingress-Path`). Retencja zdjęć ALERT-ów i strojenie progów — Faza 6.
 
 ## Faza 6 — Wiele kamer i strojenie
 

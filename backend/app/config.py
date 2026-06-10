@@ -19,6 +19,9 @@ DATA_DIR = Path(os.getenv("FACE_DATA_DIR", str(BASE_DIR / "data")))
 # Port nasłuchu (Ingress kieruje na ten port wewnątrz kontenera).
 PORT = int(os.getenv("FACE_PORT", "8099"))
 
+# Poziom logowania (opcja add-onu log_level → FACE_LOG_LEVEL). DEBUG/INFO/WARNING/ERROR.
+LOG_LEVEL = os.getenv("FACE_LOG_LEVEL", "info").upper()
+
 # Bazowy adres API go2rtc. W HA OS go2rtc to osobny add-on; domyślnie API na 1984.
 # Źródło kamery, które nie jest pełnym URL-em, traktujemy jako nazwę streamu go2rtc
 # i składamy: {GO2RTC_URL}/api/frame.jpeg?src=<źródło>.
