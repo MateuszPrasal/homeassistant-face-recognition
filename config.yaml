@@ -1,0 +1,32 @@
+# Manifest add-onu HA OS.
+# Repo z jednym add-onem: korzeń = katalog add-onu (kontekst buildu).
+name: Rozpoznawanie twarzy
+version: "0.1.0"
+slug: face_recognition
+description: >-
+  Rozpoznawanie twarzy domowników z kamery IP. Nieznana twarz lub osoba bez
+  twarzy w zaznaczonym fragmencie kadru → alert ze zdjęciem do Home Assistant
+  przez MQTT.
+url: https://github.com/mprasal/homeassistant-face-recognition
+# RPi 5 = aarch64; amd64 dla dev/testów na PC.
+arch:
+  - aarch64
+  - amd64
+startup: application
+boot: auto
+# Brak s6-overlay w obrazie bazowym (python:slim) — własny CMD.
+init: false
+# UI w panelu bocznym HA przez Ingress (bez osobnego logowania).
+ingress: true
+ingress_port: 8099
+panel_icon: mdi:face-recognition
+panel_title: Twarze
+# Trwały katalog danych (SQLite, snapshoty, modele).
+map:
+  - data:rw
+# Supervisor poda dane brokera MQTT (wykorzystamy w Fazie 4).
+services:
+  - mqtt:want
+# Opcje konfiguracyjne dojdą w kolejnych fazach (kamera, próg, interwał).
+options: {}
+schema: {}

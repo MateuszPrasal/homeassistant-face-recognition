@@ -1,0 +1,23 @@
+# Kontekst buildu — wytnij to, czego obraz nie potrzebuje.
+.git
+.claude
+docs
+
+# Node
+**/node_modules
+frontend/.next
+frontend/out
+
+# Python
+backend/.venv
+**/__pycache__
+**/*.pyc
+backend/static
+
+# Dane runtime
+data
+**/*.sqlite*
+
+# Dokumentacja/dev
+*.md
+!backend/README.md

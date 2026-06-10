@@ -1,0 +1,38 @@
+# Obraz bazowy runtime — globalny ARG, by był widoczny w FROM (nadpisywany przez
+# Supervisora z build.yaml; lokalnie domyślnie python:3.12-slim).
+ARG BUILD_FROM=python:3.12-slim
+
+# ---- Stage 1: build frontu (Next.js static export) ----
+FROM node:24-slim AS frontend
+WORKDIR /frontend
+# Najpierw manifesty — cache warstwy npm, gdy kod się zmienia a deps nie.
+COPY frontend/package.json frontend/package-lock.json ./
+RUN npm ci
+COPY frontend/ ./
+# `next build` z output:'export' tworzy /frontend/out
+RUN npm run build
+
+# ---- Stage 2: runtime (backend FastAPI + statyczny front) ----
+ARG BUILD_FROM=python:3.12-slim
+FROM ${BUILD_FROM} AS runtime
+
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    FACE_STATIC_DIR=/app/static \
+    FACE_DATA_DIR=/data \
+    FACE_PORT=8099
+
+WORKDIR /app
+
+# Zależności backendu. TODO (Faza 2): zastąpić jawną listę lockfile (uv export).
+COPY backend/pyproject.toml ./
+RUN pip install --no-cache-dir fastapi "uvicorn[standard]"
+
+# Kod backendu + zbudowany front + skrypt startowy.
+COPY backend/app ./app
+COPY --from=frontend /frontend/out ./static
+COPY run.sh /run.sh
+RUN chmod +x /run.sh
+
+EXPOSE 8099
+CMD ["/run.sh"]

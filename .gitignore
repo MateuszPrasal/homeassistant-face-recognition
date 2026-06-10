@@ -1,0 +1,34 @@
+# Python
+backend/.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+
+# Node / Next.js
+node_modules/
+frontend/.next/
+frontend/out/
+.npm/
+
+# Build artefakty serwowane przez backend (budowane z frontu)
+backend/static/
+
+# Dane runtime (SQLite, snapshoty, modele) — w add-onie idą do /data
+data/
+*.sqlite
+*.sqlite3
+*.db
+
+# Modele ML (pobierane przy buildzie obrazu)
+models/
+*.onnx
+
+# IDE / OS
+.DS_Store
+.idea/
+.vscode/
+
+# Env
+.env
+.env.local
