@@ -116,7 +116,10 @@ class CameraWorker:
         if res.outcome == "none":
             return
 
-        snapshot_path: str | None = None
+        # Snapshot zapisujemy dla KAŻDEJ wykrytej osoby (ok / unknown_face /
+        # person_no_face) — to miniatura w logu zdarzeń (tani, przydatny do
+        # strojenia). Cooldown bramkuje tylko publikację MQTT, nie zapis snapshotu.
+        snapshot_path = self._save_snapshot(res.image)
 
         if res.outcome == "ok":
             log.info("Kamera %s: OK — %s (score=%.2f)",
@@ -126,10 +129,8 @@ class CameraWorker:
                     self.camera, "ok", res.known_name, res.top_score, unverified=False
                 )
         else:
-            # ALERT (unknown_face / person_no_face). Snapshot zapisujemy ZAWSZE —
-            # jest miniaturą w logu zdarzeń (tani, przydatny do strojenia). Cooldown
-            # bramkuje tylko publikację MQTT (push), żeby nie spamować telefonu.
-            snapshot_path = self._save_snapshot(res.image)
+            # ALERT (unknown_face / person_no_face) — publikacja MQTT z cooldownem,
+            # żeby nie spamować telefonu pushem.
             now = time.monotonic()
             if now - self._last_alert_mono < self.camera.cooldown_seconds:
                 log.info("Kamera %s: ALERT %s — MQTT wyciszony (cooldown), snapshot zapisany",
