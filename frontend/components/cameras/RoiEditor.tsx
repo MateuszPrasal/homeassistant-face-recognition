@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { Save } from "lucide-react";
 import { snapshotUrl, updateRoi } from "@/lib/api";
 import type { Roi } from "@/lib/types";
 import { DEFAULT_RECT_ROI } from "@/lib/types";
@@ -110,7 +111,7 @@ export default function RoiEditor({ cameraId, initialRoi, onSaved }: Props) {
   return (
     <div className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-xs font-semibold uppercase tracking-wide opacity-50">Tryb:</span>
+        <span className="text-xs font-semibold uppercase tracking-wide text-fg-subtle">Tryb:</span>
         <Button variant={mode === "rect" ? "primary" : "ghost"} onClick={() => switchMode("rect")}>
           Prostokąt
         </Button>
@@ -131,7 +132,7 @@ export default function RoiEditor({ cameraId, initialRoi, onSaved }: Props) {
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
         onClick={onSurfaceClick}
-        className="relative aspect-video w-full max-w-lg cursor-crosshair touch-none select-none overflow-hidden rounded-lg border border-black/10 dark:border-white/10 bg-black/20"
+        className="relative aspect-video w-full max-w-lg cursor-crosshair touch-none select-none overflow-hidden rounded-lg border border-border bg-black/40"
       >
         {!snapErr ? (
           // eslint-disable-next-line @next/next/no-img-element
@@ -142,7 +143,7 @@ export default function RoiEditor({ cameraId, initialRoi, onSaved }: Props) {
             onError={() => setSnapErr(true)}
           />
         ) : (
-          <div className="absolute inset-0 grid place-items-center p-4 text-center text-xs opacity-50">
+          <div className="absolute inset-0 grid place-items-center p-4 text-center text-xs text-fg-subtle">
             Brak podglądu (go2rtc niedostępny). ROI można narysować mimo to.
           </div>
         )}
@@ -188,10 +189,10 @@ export default function RoiEditor({ cameraId, initialRoi, onSaved }: Props) {
       </div>
 
       {mode === "rect" ? (
-        <p className="text-xs opacity-50">Przeciągnij na podglądzie, aby zaznaczyć prostokąt.</p>
+        <p className="text-xs text-fg-subtle">Przeciągnij na podglądzie, aby zaznaczyć prostokąt.</p>
       ) : (
         <div className="flex items-center gap-2">
-          <p className="text-xs opacity-50">
+          <p className="text-xs text-fg-subtle">
             Klikaj, aby dodać wierzchołki ({polyPoints.length}).
           </p>
           <Button variant="ghost" onClick={closePoly} disabled={polyPoints.length < 3}>
@@ -209,6 +210,7 @@ export default function RoiEditor({ cameraId, initialRoi, onSaved }: Props) {
 
       <div>
         <Button onClick={save} disabled={saving}>
+          <Save className="size-4" />
           Zapisz ROI
         </Button>
       </div>

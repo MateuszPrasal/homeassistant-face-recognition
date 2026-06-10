@@ -244,11 +244,16 @@ backend/    FastAPI (app/), pyproject (uv, py3.12), venv w .venv, statyk w stati
             app/ml/: models (pobieranie/ścieżki ONNX), person (MobileNet-SSD),
             face (SCRFD det_500m), recognize (ArcFace w600k_mbf), __init__ (roi_crop);
             tests/ (pytest, conftest = fixture client z kaskadą off)
-frontend/   Next.js 16 (App Router, Tailwind), output:'export' → build:backend
+frontend/   Next.js 16 (App Router, Tailwind v4), output:'export' → build:backend
+            Styl: ciemna konsola operacyjna (dark-ops) — jeden motyw na tokenach
+            CSS w globals.css (@theme: bg/surface/border/fg/fg-muted/accent #22c55e/
+            danger/warn), bez dublowania light/dark:. Fonty Fira Sans/Fira Code przez
+            next/font (self-host, latin+latin-ext). Ikony: lucide-react (SVG, bez emoji).
             scripts/relativize.mjs (post-build: ścieżki assetów względne pod Ingress)
             lib/: api (klient REST, ścieżki względne pod Ingress), types
             app/: page (SPA z zakładkami Osoby/Kamery/Zdarzenia — bez routingu klienta)
-            components/: ui (prymitywy), persons/ (PersonsView, PersonCard,
+            components/: ui (prymitywy na tokenach: Button/Field/Select/Card/Badge/
+            ErrorBanner/Spinner), persons/ (PersonsView, PersonCard,
             FaceEnroll — detekcja+podgląd ramki), cameras/ (CamerasView,
             CameraCard, RoiEditor — rysowanie ROI prostokąt/wielokąt na canvas),
             events/ (EventsView — log detekcji: badge outcome, score, miniatura)

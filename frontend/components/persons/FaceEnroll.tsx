@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { Check, ImagePlus } from "lucide-react";
 import { ApiError, detectFace, enrollFace } from "@/lib/api";
 import type { DetectResult } from "@/lib/types";
 import { Button, ErrorBanner } from "@/components/ui";
@@ -79,11 +80,11 @@ export default function FaceEnroll({ personId, onEnrolled }: Props) {
           const f = e.target.files?.[0];
           if (f) onPick(f);
         }}
-        className="text-sm file:mr-3 file:rounded-md file:border-0 file:bg-black/10 dark:file:bg-white/15 file:px-3 file:py-1.5 file:text-sm file:font-medium hover:file:bg-black/20 dark:hover:file:bg-white/25"
+        className="text-sm text-fg-muted file:mr-3 file:cursor-pointer file:rounded-md file:border-0 file:bg-surface-2 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-fg file:transition-colors hover:file:bg-border"
       />
 
       {preview && (
-        <div className="relative w-full max-w-sm overflow-hidden rounded-lg border border-black/10 dark:border-white/10">
+        <div className="relative w-full max-w-sm overflow-hidden rounded-lg border border-border">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={preview} alt="Podgląd" className="block w-full" />
           {detect && (
@@ -110,10 +111,12 @@ export default function FaceEnroll({ personId, onEnrolled }: Props) {
         </div>
       )}
 
-      {busy && !detect && <span className="text-sm opacity-60">Analizuję zdjęcie…</span>}
+      {busy && !detect && <span className="text-sm text-fg-muted">Analizuję zdjęcie…</span>}
 
       {detect && (
-        <p className="text-sm opacity-70">
+        <p
+          className={`text-sm ${faceCount === 1 ? "text-accent" : "text-fg-muted"}`}
+        >
           {faceCount === 0 && "Nie wykryto twarzy — wybierz inne zdjęcie."}
           {faceCount === 1 && `Wykryto twarz (pewność ${detect.faces[0].score}).`}
           {faceCount > 1 && `Wykryto ${faceCount} twarze — potrzebne zdjęcie z jedną osobą.`}
@@ -124,10 +127,12 @@ export default function FaceEnroll({ personId, onEnrolled }: Props) {
 
       <div className="flex gap-2">
         <Button onClick={onSave} disabled={!canSave}>
+          <Check className="size-4" />
           Zapisz twarz
         </Button>
         {file && (
           <Button variant="ghost" onClick={reset} disabled={busy}>
+            <ImagePlus className="size-4" />
             Wyczyść
           </Button>
         )}

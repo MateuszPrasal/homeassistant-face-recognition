@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { Plus, X } from "lucide-react";
 import { ApiError, createCamera, listCameras } from "@/lib/api";
 import type { Camera } from "@/lib/types";
 import { DEFAULT_RECT_ROI } from "@/lib/types";
@@ -58,8 +59,9 @@ export default function CamerasView() {
   return (
     <div className="flex flex-col gap-5">
       <div className="flex items-center justify-between">
-        <h2 className="text-sm font-semibold opacity-70">Kamery</h2>
+        <h2 className="text-xs font-semibold uppercase tracking-wide text-fg-subtle">Kamery</h2>
         <Button variant="ghost" onClick={() => setShowForm((v) => !v)}>
+          {showForm ? <X className="size-4" /> : <Plus className="size-4" />}
           {showForm ? "Anuluj" : "Dodaj kamerę"}
         </Button>
       </div>
@@ -81,11 +83,12 @@ export default function CamerasView() {
                 onChange={(e) => setForm({ ...form, source: e.target.value })}
               />
             </div>
-            <p className="text-xs opacity-50">
+            <p className="text-xs text-fg-subtle">
               ROI i pozostałe parametry ustawisz po dodaniu, rozwijając kamerę.
             </p>
             <div>
               <Button type="submit" disabled={adding || !form.name.trim() || !form.source.trim()}>
+                <Plus className="size-4" />
                 Dodaj
               </Button>
             </div>
@@ -98,7 +101,7 @@ export default function CamerasView() {
       {cameras === null ? (
         <Spinner label="Wczytuję kamery…" />
       ) : cameras.length === 0 ? (
-        <p className="text-sm opacity-50">Brak kamer. Dodaj pierwszą powyżej.</p>
+        <p className="text-sm text-fg-subtle">Brak kamer. Dodaj pierwszą powyżej.</p>
       ) : (
         <ul className="flex flex-col gap-3">
           {cameras.map((c) => (

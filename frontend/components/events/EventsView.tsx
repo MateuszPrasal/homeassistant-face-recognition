@@ -2,35 +2,38 @@
 
 import { useCallback, useEffect, useState } from "react";
 import {
+  CircleCheck,
+  CircleHelp,
+  RefreshCw,
+  TriangleAlert,
+  type LucideIcon,
+} from "lucide-react";
+import {
   ApiError,
   detectionSnapshotUrl,
   listCameras,
   listDetections,
 } from "@/lib/api";
 import type { Camera, Detection, Outcome } from "@/lib/types";
-import { Button, Card, ErrorBanner, Spinner } from "@/components/ui";
+import { Badge, Button, Card, ErrorBanner, Select, Spinner } from "@/components/ui";
 
-const OUTCOME: Record<Outcome, { label: string; cls: string }> = {
-  ok: {
-    label: "OK",
-    cls: "bg-green-600/10 text-green-700 dark:text-green-400",
-  },
-  unknown_face: {
-    label: "Nieznana twarz",
-    cls: "bg-red-600/10 text-red-700 dark:text-red-400",
-  },
-  person_no_face: {
-    label: "Osoba bez twarzy",
-    cls: "bg-amber-600/10 text-amber-700 dark:text-amber-400",
-  },
+type Tone = "accent" | "danger" | "warn" | "muted";
+
+const OUTCOME: Record<Outcome, { label: string; tone: Tone; icon: LucideIcon }> = {
+  ok: { label: "OK", tone: "accent", icon: CircleCheck },
+  unknown_face: { label: "Nieznana twarz", tone: "danger", icon: TriangleAlert },
+  person_no_face: { label: "Osoba bez twarzy", tone: "warn", icon: CircleHelp },
 };
 
 function OutcomeBadge({ outcome }: { outcome: Outcome }) {
-  const o = OUTCOME[outcome] ?? { label: outcome, cls: "bg-black/10" };
+  const o = OUTCOME[outcome];
+  if (!o) return <Badge tone="muted">{outcome}</Badge>;
+  const Icon = o.icon;
   return (
-    <span className={`rounded px-2 py-0.5 text-xs font-medium ${o.cls}`}>
+    <Badge tone={o.tone}>
+      <Icon className="size-3.5" />
       {o.label}
-    </span>
+    </Badge>
   );
 }
 
@@ -82,12 +85,11 @@ export default function EventsView() {
   return (
     <div className="flex flex-col gap-5">
       <div className="flex items-center justify-between gap-3">
-        <h2 className="text-sm font-semibold opacity-70">Zdarzenia</h2>
+        <h2 className="text-xs font-semibold uppercase tracking-wide text-fg-subtle">Zdarzenia</h2>
         <div className="flex items-center gap-2">
-          <select
+          <Select
             value={filter ?? ""}
             onChange={(e) => setFilter(e.target.value ? Number(e.target.value) : null)}
-            className="rounded-md border border-black/15 bg-transparent px-2 py-1 text-sm outline-none focus:border-blue-500 dark:border-white/15"
           >
             <option value="">Wszystkie kamery</option>
             {cameras.map((c) => (
@@ -95,8 +97,9 @@ export default function EventsView() {
                 {c.name}
               </option>
             ))}
-          </select>
+          </Select>
           <Button variant="ghost" onClick={() => void refresh()}>
+            <RefreshCw className="size-4" />
             Odśwież
           </Button>
         </div>
@@ -107,7 +110,7 @@ export default function EventsView() {
       {rows === null ? (
         <Spinner label="Wczytuję zdarzenia…" />
       ) : rows.length === 0 ? (
-        <p className="text-sm opacity-50">
+        <p className="text-sm text-fg-subtle">
           Brak zdarzeń. Pojawią się, gdy w ROI wykryta zostanie osoba.
         </p>
       ) : (
@@ -120,10 +123,10 @@ export default function EventsView() {
                   <img
                     src={detectionSnapshotUrl(d.id)}
                     alt="snapshot"
-                    className="size-14 shrink-0 rounded-md object-cover"
+                    className="size-14 shrink-0 rounded-md border border-border object-cover"
                   />
                 ) : (
-                  <div className="flex size-14 shrink-0 items-center justify-center rounded-md bg-black/5 text-xs opacity-40 dark:bg-white/5">
+                  <div className="flex size-14 shrink-0 items-center justify-center rounded-md bg-surface-2 text-xs text-fg-subtle">
                     —
                   </div>
                 )}
@@ -134,10 +137,10 @@ export default function EventsView() {
                       <span className="truncate text-sm font-medium">{d.matched_name}</span>
                     )}
                   </div>
-                  <div className="flex flex-wrap gap-x-3 text-xs opacity-60">
+                  <div className="flex flex-wrap gap-x-3 text-xs text-fg-muted">
                     <span>{formatTime(d.created_at)}</span>
                     <span>{cameraName(d.camera_id)}</span>
-                    <span>score {d.score.toFixed(2)}</span>
+                    <span className="font-mono">score {d.score.toFixed(2)}</span>
                   </div>
                 </div>
               </Card>

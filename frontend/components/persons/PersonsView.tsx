@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { UserPlus } from "lucide-react";
 import { ApiError, createPerson, listPersons } from "@/lib/api";
 import type { Person } from "@/lib/types";
 import { Button, ErrorBanner, Field, Spinner } from "@/components/ui";
@@ -53,6 +54,7 @@ export default function PersonsView() {
           className="min-w-0 flex-1"
         />
         <Button type="submit" disabled={adding || !name.trim()}>
+          <UserPlus className="size-4" />
           Dodaj
         </Button>
       </form>
@@ -62,7 +64,7 @@ export default function PersonsView() {
       {persons === null ? (
         <Spinner label="Wczytuję osoby…" />
       ) : persons.length === 0 ? (
-        <p className="text-sm opacity-50">Brak osób. Dodaj pierwszego domownika powyżej.</p>
+        <p className="text-sm text-fg-subtle">Brak osób. Dodaj pierwszego domownika powyżej.</p>
       ) : (
         <ul className="flex flex-col gap-3">
           {persons.map((p) => (

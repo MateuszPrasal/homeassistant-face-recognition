@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { ChevronRight, Save, Trash2 } from "lucide-react";
 import { deleteCamera, updateCamera } from "@/lib/api";
 import type { Camera } from "@/lib/types";
 import { Button, ErrorBanner, Field } from "@/components/ui";
@@ -60,37 +61,38 @@ export default function CameraCard({ camera, onChanged }: Props) {
   }
 
   return (
-    <div className="rounded-xl border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.03]">
+    <div className="overflow-hidden rounded-xl border border-border bg-surface">
       <div className="flex items-center justify-between gap-3 p-4">
-        <button onClick={() => setOpen((v) => !v)} className="flex items-center gap-2 text-left">
-          <span className={`text-xs opacity-50 transition-transform ${open ? "rotate-90" : ""}`}>
-            ▶
-          </span>
+        <button onClick={() => setOpen((v) => !v)} className="flex min-w-0 items-center gap-2 text-left">
+          <ChevronRight
+            className={`size-4 shrink-0 text-fg-subtle transition-transform ${open ? "rotate-90" : ""}`}
+          />
           <span className="font-medium">{camera.name}</span>
           <span
-            className={`size-2 rounded-full ${camera.enabled ? "bg-green-500" : "bg-gray-400"}`}
+            className={`size-2 shrink-0 rounded-full ${camera.enabled ? "bg-accent shadow-[0_0_8px] shadow-accent/60" : "bg-fg-subtle"}`}
             title={camera.enabled ? "włączona" : "wyłączona"}
           />
-          <span className="text-xs opacity-50">
+          <span className="truncate text-xs text-fg-subtle">
             {camera.source} · ROI: {roiLabel(camera)}
           </span>
         </button>
         <Button variant="danger" onClick={onDelete}>
+          <Trash2 className="size-4" />
           Usuń
         </Button>
       </div>
 
       {open && (
-        <div className="flex flex-col gap-5 border-t border-black/10 dark:border-white/10 p-4">
+        <div className="flex flex-col gap-5 border-t border-border p-4">
           <section>
-            <h4 className="mb-3 text-xs font-semibold uppercase tracking-wide opacity-50">
+            <h4 className="mb-3 text-xs font-semibold uppercase tracking-wide text-fg-subtle">
               Region detekcji (ROI)
             </h4>
             <RoiEditor cameraId={camera.id} initialRoi={camera.roi} onSaved={onChanged} />
           </section>
 
           <section className="flex flex-col gap-3">
-            <h4 className="text-xs font-semibold uppercase tracking-wide opacity-50">Ustawienia</h4>
+            <h4 className="text-xs font-semibold uppercase tracking-wide text-fg-subtle">Ustawienia</h4>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <Field
                 label="Nazwa"
@@ -133,6 +135,7 @@ export default function CameraCard({ camera, onChanged }: Props) {
                   type="checkbox"
                   checked={form.enabled}
                   onChange={(e) => setForm({ ...form, enabled: e.target.checked })}
+                  className="size-4 accent-accent"
                 />
                 Włączona
               </label>
@@ -140,6 +143,7 @@ export default function CameraCard({ camera, onChanged }: Props) {
             <ErrorBanner message={error} />
             <div>
               <Button onClick={saveSettings} disabled={saving}>
+                <Save className="size-4" />
                 Zapisz ustawienia
               </Button>
             </div>

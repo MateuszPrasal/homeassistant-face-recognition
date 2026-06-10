@@ -1,9 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { ChevronRight, Trash2, X } from "lucide-react";
 import { deleteFace, deletePerson, listFaces } from "@/lib/api";
 import type { Face, Person } from "@/lib/types";
-import { Button, Spinner } from "@/components/ui";
+import { Badge, Button, Spinner } from "@/components/ui";
 import FaceEnroll from "./FaceEnroll";
 
 type Props = {
@@ -42,29 +43,30 @@ export default function PersonCard({ person, onChanged }: Props) {
   }
 
   return (
-    <div className="rounded-xl border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.03]">
+    <div className="overflow-hidden rounded-xl border border-border bg-surface">
       <div className="flex items-center justify-between gap-3 p-4">
         <button
           onClick={() => setOpen((v) => !v)}
-          className="flex items-center gap-2 text-left"
+          className="flex min-w-0 items-center gap-2 text-left"
         >
-          <span className={`text-xs opacity-50 transition-transform ${open ? "rotate-90" : ""}`}>
-            ▶
-          </span>
-          <span className="font-medium">{person.name}</span>
-          <span className="rounded-full bg-black/10 dark:bg-white/15 px-2 py-0.5 text-xs opacity-80">
+          <ChevronRight
+            className={`size-4 shrink-0 text-fg-subtle transition-transform ${open ? "rotate-90" : ""}`}
+          />
+          <span className="truncate font-medium">{person.name}</span>
+          <Badge tone="accent">
             {person.face_count} {person.face_count === 1 ? "twarz" : "twarzy"}
-          </span>
+          </Badge>
         </button>
         <Button variant="danger" onClick={onDeletePerson}>
+          <Trash2 className="size-4" />
           Usuń
         </Button>
       </div>
 
       {open && (
-        <div className="flex flex-col gap-4 border-t border-black/10 dark:border-white/10 p-4">
+        <div className="flex flex-col gap-4 border-t border-border p-4">
           <section>
-            <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide opacity-50">
+            <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-fg-subtle">
               Zapisane twarze
             </h4>
             {loading && faces === null ? (
@@ -74,26 +76,26 @@ export default function PersonCard({ person, onChanged }: Props) {
                 {faces.map((f) => (
                   <li
                     key={f.id}
-                    className="flex items-center gap-2 rounded-md bg-black/5 dark:bg-white/10 px-2.5 py-1 text-sm"
+                    className="flex items-center gap-2 rounded-md bg-surface-2 px-2.5 py-1 text-sm"
                   >
-                    <span className="opacity-70">#{f.id}</span>
+                    <span className="font-mono text-fg-muted">#{f.id}</span>
                     <button
                       onClick={() => onDeleteFace(f.id)}
-                      className="text-red-600 dark:text-red-400 hover:opacity-70"
+                      className="text-danger transition-opacity hover:opacity-70"
                       title="Usuń twarz"
                     >
-                      ✕
+                      <X className="size-3.5" />
                     </button>
                   </li>
                 ))}
               </ul>
             ) : (
-              <p className="text-sm opacity-50">Brak twarzy — dodaj zdjęcie poniżej.</p>
+              <p className="text-sm text-fg-subtle">Brak twarzy — dodaj zdjęcie poniżej.</p>
             )}
           </section>
 
           <section>
-            <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide opacity-50">
+            <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-fg-subtle">
               Dodaj twarz ze zdjęcia
             </h4>
             <FaceEnroll personId={person.id} onEnrolled={refresh} />
