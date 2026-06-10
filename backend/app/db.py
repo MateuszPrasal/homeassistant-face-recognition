@@ -26,6 +26,22 @@ CREATE TABLE IF NOT EXISTS cameras (
     enabled          INTEGER NOT NULL DEFAULT 1,
     created_at       TEXT    NOT NULL DEFAULT (datetime('now'))
 );
+
+-- Osoby (domownicy) i ich embeddingi twarzy. Jedna osoba może mieć wiele
+-- embeddingów (różne ujęcia) — patrz `faces`. Embedding to float32[512] jako blob.
+CREATE TABLE IF NOT EXISTS persons (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    name       TEXT    NOT NULL,
+    created_at TEXT    NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS faces (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    person_id  INTEGER NOT NULL REFERENCES persons(id) ON DELETE CASCADE,
+    embedding  BLOB    NOT NULL,
+    created_at TEXT    NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_faces_person ON faces(person_id);
 """
 
 _conn: sqlite3.Connection | None = None

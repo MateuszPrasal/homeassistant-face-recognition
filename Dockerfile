@@ -20,19 +20,22 @@ ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     FACE_STATIC_DIR=/app/static \
     FACE_DATA_DIR=/data \
+    FACE_MODELS_DIR=/data/models \
     FACE_PORT=8099
 
 WORKDIR /app
 
-# opencv-python-headless wymaga libglib2.0-0 (slim go nie ma).
+# opencv-python-headless wymaga libglib2.0-0; onnxruntime wymaga libgomp1 (OpenMP).
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends libglib2.0-0 \
+    && apt-get install -y --no-install-recommends libglib2.0-0 libgomp1 \
     && rm -rf /var/lib/apt/lists/*
 
-# Zależności backendu. TODO (Faza 2): zastąpić jawną listę lockfile (uv export).
+# Zależności backendu. TODO (Faza 5): zastąpić jawną listę lockfile (uv export).
+# Modele ONNX dociągają się przy pierwszym starcie do FACE_MODELS_DIR (/data/models).
 COPY backend/pyproject.toml ./
 RUN pip install --no-cache-dir \
-        fastapi "uvicorn[standard]" httpx numpy opencv-python-headless
+        fastapi "uvicorn[standard]" httpx numpy opencv-python-headless \
+        onnxruntime python-multipart
 
 # Kod backendu + zbudowany front + skrypt startowy.
 COPY backend/app ./app

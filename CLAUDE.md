@@ -33,10 +33,19 @@ jest istotne, bo każda z tych rzeczy ma kuszącą, ale gorszą alternatywę.
 - **Sprzęt: Raspberry Pi 5 (4–8 GB), wszystko na jednym RPi obok HA.** To
   ogranicza budżet CPU/RAM — patrz „Wydajność".
 - **Dwa modele, kaskadowo: osoba → twarz.** Najpierw **lekki detektor osoby**
-  (np. YOLOv8n / MobileNet-SSD, klasa `person`, ONNX) w ROI. Dopiero gdy jest
-  osoba — **InsightFace `buffalo_s`** (detektor SCRFD + lekki ArcFace) na obszarze
-  osoby. Twarz → embedding 512-d → **cosine similarity** do bazy. Świadomie NIE
-  używamy `face_recognition`/dlib (gorsza dokładność + ból kompilacji na ARM).
+  (**MobileNet-SSD v1**, klasa `person`, ONNX) w ROI. Dopiero gdy jest osoba —
+  modele z **`buffalo_s` na samym onnxruntime** (`det_500m` SCRFD + `w600k_mbf`
+  ArcFace) na obszarze osoby. Twarz → embedding 512-d → **cosine similarity** do
+  bazy. Świadome wybory:
+  - **MobileNet-SSD, nie YOLOv8n** — YOLOv8 jest na AGPL, a `yolov8n.onnx` nie da
+    się czysto pozyskać (eksport przez torcha / auth HF). MobileNet-SSD ma
+    permisywną licencję i pobiera się wprost. Detektor siedzi za interfejsem
+    (`app/ml/person.py`) — podmiana możliwa, gdy ktoś zaakceptuje AGPL.
+  - **Surowy onnxruntime, nie pakiet `insightface`** — pakiet ciągnie
+    scikit-image/scipy/tifffile i kompilację cython. Bierzemy z `buffalo_s.zip`
+    tylko dwa pliki ONNX i obsługujemy je sami. **Bez torcha.**
+  - Świadomie NIE używamy `face_recognition`/dlib (gorsza dokładność + ból
+    kompilacji na ARM).
 - **ROI to byt pierwszej klasy.** Jeden zaznaczony fragment kadru, na którym
   działa cała kaskada (osoba → twarz). Konfigurowalny od początku (config/baza),
   rysowany w UI w Fazie 3. Każda kamera ma swój ROI. Kadrujemy do ROI **przed**
@@ -160,9 +169,16 @@ docker run --rm -p 8099:8099 face-recognition:dev   # health: /api/health
 Backend serwuje statyczny front spod `STATIC_DIR` (env `FACE_STATIC_DIR`,
 domyślnie `backend/static`; w kontenerze `/app/static`).
 
-Env runtime: `FACE_DATA_DIR` (SQLite + dane, w add-onie `/data`), `FACE_PORT`
-(8099), `FACE_GO2RTC_URL` (baza API go2rtc, domyślnie `http://localhost:1984`),
-`FACE_SNAPSHOT_TIMEOUT` (s).
+Env runtime:
+- `FACE_DATA_DIR` — SQLite + dane (snapshoty ALERT-ów w `data/alerts`), w add-onie `/data`.
+- `FACE_PORT` (8099), `FACE_GO2RTC_URL` (baza API go2rtc, `http://localhost:1984`),
+  `FACE_SNAPSHOT_TIMEOUT` (s).
+- `FACE_MODELS_DIR` — katalog modeli ONNX (lokalnie `backend/models`, w add-onie
+  `/data/models`). Modele dociągają się przy pierwszym starcie.
+- `FACE_ENABLE_CASCADE` (`1`/`0`) — wyłącza kaskadę ML (testy/CI lecą z `0`,
+  bez pobierania modeli).
+- Progi kaskady: `FACE_PERSON_CONF` (0.5), `FACE_DET_THRESH` (0.4 — detektor twarzy),
+  `FACE_MATCH_THRESHOLD` (0.4 — cosine do galerii; ~0.35–0.5 do strojenia).
 
 ## Frontend: Next.js 16 — czytaj dokumentację z paczki
 
@@ -178,9 +194,15 @@ Korzeń repo = katalog add-onu (kontekst buildu Dockera widzi `backend/` i `fron
 
 ```
 backend/    FastAPI (app/), pyproject (uv, py3.12), venv w .venv, statyk w static/
-            app/: main (lifespan+routery), routes (API kamer), cameras (CRUD),
-            db (SQLite), schemas, roi (model+maska), snapshot (go2rtc),
-            motion (gate ruchu), worker (pętle akwizycji); tests/ (pytest)
+            app/: main (lifespan+routery+budowa kaskady), routes (API kamer),
+            routes_persons (API osób + enrollment twarzy), cameras (CRUD),
+            persons (repo osób/twarzy + galeria), db (SQLite), schemas,
+            roi (model+maska), snapshot (go2rtc), motion (gate ruchu),
+            matching (cosine brute-force), cascade (osoba→twarz→embedding→match),
+            worker (pętle akwizycji + cooldown + zapis ALERT-ów);
+            app/ml/: models (pobieranie/ścieżki ONNX), person (MobileNet-SSD),
+            face (SCRFD det_500m), recognize (ArcFace w600k_mbf), __init__ (roi_crop);
+            tests/ (pytest, conftest = fixture client z kaskadą off)
 frontend/   Next.js 16 (App Router, Tailwind), output:'export' → build:backend
 docs/        przykłady (automatyzacje HA — dojdą w Fazie 4)
 config.yaml  manifest add-onu (Ingress, port 8099, mqtt:want, map data)

@@ -42,3 +42,14 @@ class Camera(CameraBase):
 
     id: int
     created_at: str
+
+
+class PersonCreate(BaseModel):
+    name: str = Field(min_length=1)
+
+
+class Person(BaseModel):
+    id: int
+    name: str
+    created_at: str
+    face_count: int = 0

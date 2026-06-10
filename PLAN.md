@@ -53,18 +53,31 @@ się odpalić i zobaczyć. Kontekst i decyzje: `CLAUDE.md`.
 - Dług: `motion_threshold` to próg startowy (0.02) — strojenie na realnym
   obrazie. Brak debounce/min. liczby klatek ruchu (dojdzie z cooldownem w Fazie 2).
 
-## Faza 2 — Kaskada osoba → twarz + rozpoznawanie
+## Faza 2 — Kaskada osoba → twarz + rozpoznawanie ✅ ZROBIONE
 
-- Detektor osoby (YOLOv8n / MobileNet-SSD, ONNX), klasa `person`, w obrębie ROI.
-- Wczytanie `buffalo_s` (onnxruntime): detekcja twarzy na obszarze osoby +
-  embedding 512-d.
-- Schemat `persons` / `faces`, zapis embeddingów (blob float32).
-- Dopasowanie cosine do bazy, konfigurowalny próg, wynik znany/nieznany + score.
-- Spięcie kaskady z pętlą: gate ruchu → osoba → twarz → embedding → dopasowanie,
-  z wyznaczeniem `outcome` (`ok` / `unknown_face` / `person_no_face`).
-- Cooldown po ALERT-cie.
-- Cel fazy: w logach pojawia się outcome: „znany: <imię> (score)" / „nieznany
-  (score)" / „osoba bez twarzy".
+- [x] Detektor osoby: **MobileNet-SSD v1** (ONNX, onnxruntime), klasa person=1,
+  NMS w grafie. Wybór: permisywna licencja + bezpośrednio pobieralny, w odróżnieniu
+  od YOLOv8n (AGPL, eksport przez torcha). Za interfejsem `app/ml/person.py` —
+  podmiana na YOLOv8n możliwa, gdy ktoś zaakceptuje AGPL. **Bez torcha.**
+- [x] Twarz z **buffalo_s na samym onnxruntime** (bez pakietu insightface — ciągnął
+  scikit-image/scipy i kompilację cython): `det_500m` (SCRFD, `app/ml/face.py` —
+  dekoder 3 stridy + NMS + 5 landmarków) → `w600k_mbf` (ArcFace, `app/ml/recognize.py`
+  — align 5-pkt do 112×112, embedding 512-d L2-norm).
+- [x] Schemat `persons` / `faces` (embedding blob float32[512]), repo `app/persons.py`,
+  galeria do dopasowania. Matching cosine brute-force numpy (`app/matching.py`),
+  próg `FACE_MATCH_THRESHOLD` (start 0.4).
+- [x] Kaskada `app/cascade.py`: ROI → osoba → (na obszarze osoby) twarz → embedding
+  → dopasowanie → `outcome`. Priorytet: `unknown_face` > `person_no_face` > `ok`.
+- [x] Spięcie z workerem: po gate ruchu odpala kaskadę; ALERT zapisuje snapshot do
+  `/data/alerts` i ma **cooldown** (`cooldown_seconds`). Modele ładowane raz,
+  współdzielone między kamerami (onnxruntime.Run jest thread-safe).
+- [x] API osób + enrollment twarzy ze zdjęcia (`app/routes_persons.py`):
+  `POST /api/persons/{id}/faces` wykrywa twarz, liczy embedding, zapisuje.
+- [x] Testy: logika outcome'ów (atrapy), matching cosine, API osób; test
+  integracyjny na realnych modelach za flagą `FACE_IT=1`. Weryfikacja: enroll
+  Obamy → `obama→ok`, `biden→unknown_face`, cross-photo match 0.54.
+- Cel fazy osiągnięty: w logach outcome „OK — <imię> (score)" / „ALERT unknown_face"
+  / „ALERT person_no_face", snapshoty ALERT-ów na dysku, cooldown działa.
 
 ## Faza 3 — UI (zarządzanie twarzami + ROI)
 

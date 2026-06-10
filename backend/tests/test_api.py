@@ -1,34 +1,9 @@
-"""Testy API kamer. Baza w tmpdir, kamery `enabled=False` (bez ruchu w sieci)."""
+"""Testy API kamer. Baza w tmpdir, kamery `enabled=False` (bez ruchu w sieci).
 
-import os
+Fixture `client` w conftest.py (kaskada ML wyłączona).
+"""
 
-import pytest
 from fastapi.testclient import TestClient
-
-
-@pytest.fixture()
-def client(tmp_path, monkeypatch) -> TestClient:
-    # Świeża baza per test — przeładuj moduły zależne od ścieżki DB.
-    monkeypatch.setenv("FACE_DATA_DIR", str(tmp_path))
-    import importlib
-
-    import app.config as config
-
-    importlib.reload(config)
-    import app.db as db
-
-    importlib.reload(db)
-    import app.cameras as cameras
-
-    importlib.reload(cameras)
-    import app.routes as routes
-
-    importlib.reload(routes)
-    import app.main as main
-
-    importlib.reload(main)
-    with TestClient(main.app) as c:
-        yield c
 
 
 def _payload(**over) -> dict:

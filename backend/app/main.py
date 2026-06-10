@@ -15,20 +15,40 @@ from fastapi.staticfiles import StaticFiles
 from . import __version__
 from . import cameras as repo
 from . import db
-from .config import STATIC_DIR
+from .config import ENABLE_CASCADE, STATIC_DIR
 from .routes import router as api_router
+from .routes_persons import router as persons_router
 from .worker import WorkerManager
 
-logging.getLogger("face").setLevel(logging.INFO)
+log = logging.getLogger("face")
+log.setLevel(logging.INFO)
 # httpx loguje każdy GET na INFO — w pętli akwizycji to zalew, wycisz do WARNING.
 logging.getLogger("httpx").setLevel(logging.WARNING)
 
 
+def _build_cascade():
+    """Dociąga modele i ładuje kaskadę. Przy błędzie → None (tryb sam gate ruchu)."""
+    if not ENABLE_CASCADE:
+        log.info("Kaskada ML wyłączona (FACE_ENABLE_CASCADE=0) — tylko gate ruchu.")
+        return None
+    try:
+        from .ml import models
+        from .cascade import Cascade
+
+        models.ensure_models()
+        cascade = Cascade()
+        log.info("Kaskada ML gotowa (detektor osoby + twarz + ArcFace).")
+        return cascade
+    except Exception as exc:  # noqa: BLE001
+        log.warning("Nie udało się załadować kaskady ML: %s — tryb sam gate ruchu.", exc)
+        return None
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Start: baza + workery akwizycji dla włączonych kamer. Stop: zatrzymaj wątki."""
+    """Start: baza + modele + workery akwizycji. Stop: zatrzymaj wątki."""
     db.init_db()
-    manager = WorkerManager()
+    manager = WorkerManager(cascade=_build_cascade())
     app.state.manager = manager
     manager.start_all(repo.list_cameras())
     try:
@@ -51,6 +71,7 @@ def health_check() -> dict[str, str]:
 
 app.include_router(health)
 app.include_router(api_router)
+app.include_router(persons_router)
 
 
 # Serwowanie frontu. Mount na "/" łapie wszystko, co nie trafiło wcześniej do /api.
