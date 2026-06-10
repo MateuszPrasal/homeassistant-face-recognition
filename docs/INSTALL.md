@@ -27,7 +27,7 @@ Najprościej, gdy kod jest wypchnięty na GitHub.
 1. W HA: **Ustawienia → Dodatki → Sklep z dodatkami**.
 2. Menu (⋮ w prawym górnym rogu) → **Repozytoria**.
 3. Wklej URL repo:
-   `https://github.com/mprasal/homeassistant-face-recognition`
+   `https://github.com/MateuszPrasal/homeassistant-face-recognition`
    i kliknij **Dodaj**.
 4. Odśwież stronę. Na dole sklepu pojawi się sekcja **Rozpoznawanie twarzy** —
    wejdź i kliknij **Zainstaluj**.
@@ -46,7 +46,6 @@ Gdy chcesz wgrać kod ręcznie (np. wersja niewypchnięta).
    ```
    /addons/face_recognition/
    ├── config.yaml
-   ├── build.yaml
    ├── Dockerfile
    ├── run.sh
    ├── backend/

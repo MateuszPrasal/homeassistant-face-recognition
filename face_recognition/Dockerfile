@@ -1,7 +1,3 @@
-# Obraz bazowy runtime — globalny ARG, by był widoczny w FROM (nadpisywany przez
-# Supervisora z build.yaml; lokalnie domyślnie python:3.12-slim).
-ARG BUILD_FROM=python:3.12-slim
-
 # ---- Stage 1: build frontu (Next.js static export) ----
 FROM node:24-slim AS frontend
 WORKDIR /frontend
@@ -14,8 +10,10 @@ COPY frontend/ ./
 RUN npm run build:export
 
 # ---- Stage 2: runtime (backend FastAPI + statyczny front) ----
-ARG BUILD_FROM=python:3.12-slim
-FROM ${BUILD_FROM} AS runtime
+# Na sztywno python:3.12-slim (Debian, glibc, multi-arch aarch64/amd64). NIE
+# bierzemy BUILD_FROM od Supervisora — on wymusza domyślny obraz HA (Alpine/musl,
+# bez apt-get, bez kół onnxruntime/opencv). To celowe pominięcie jego override'u.
+FROM python:3.12-slim AS runtime
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \

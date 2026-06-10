@@ -7,7 +7,7 @@ description: >-
   Rozpoznawanie twarzy domowników z kamery IP. Nieznana twarz lub osoba bez
   twarzy w zaznaczonym fragmencie kadru → alert ze zdjęciem do Home Assistant
   przez MQTT.
-url: https://github.com/mprasal/homeassistant-face-recognition
+url: https://github.com/MateuszPrasal/homeassistant-face-recognition
 # RPi 5 = aarch64; amd64 dla dev/testów na PC.
 arch:
   - aarch64

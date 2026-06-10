@@ -14,7 +14,7 @@ w podkatalogu `face_recognition/`.
 ```
 repository.yaml         manifest repozytorium add-onów (dodajesz URL w sklepie HA)
 docs/                   INSTALL.md + automatyzacje HA (push ze zdjęciem)
-face_recognition/       katalog add-onu (config.yaml, build.yaml, Dockerfile, run.sh)
+face_recognition/       katalog add-onu (config.yaml, Dockerfile, run.sh)
   backend/   FastAPI — REST API, worker ML (kaskada osoba→twarz), serwowanie statyku
   frontend/  Next.js (output: export) — UI panelu, osadzony w HA przez Ingress
 ```
