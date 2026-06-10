@@ -25,6 +25,17 @@ from .worker import WorkerManager
 
 log = logging.getLogger("face")
 log.setLevel(getattr(logging, config.LOG_LEVEL, logging.INFO))
+# Bez własnego handlera rekordy `face.*` propagują do roota, który nie ma handlera
+# (uvicorn konfiguruje tylko swoje loggery), więc INFO przepada — do logów add-onu
+# HA (stdout/stderr kontenera) trafiałby tylko WARNING+ przez lastResort. Podpinamy
+# StreamHandler na stdout i gasimy propagację, żeby log.info() było widać w HA.
+if not log.handlers:
+    _handler = logging.StreamHandler()
+    _handler.setFormatter(
+        logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s", "%H:%M:%S")
+    )
+    log.addHandler(_handler)
+log.propagate = False
 # httpx loguje każdy GET na INFO — w pętli akwizycji to zalew, wycisz do WARNING.
 logging.getLogger("httpx").setLevel(logging.WARNING)
 
