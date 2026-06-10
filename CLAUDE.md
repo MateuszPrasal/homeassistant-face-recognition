@@ -145,7 +145,7 @@ Wersje: **Python 3.12** (backend), **Node 24** + **Next.js 16** (frontend).
 uv venv --python 3.12          # utworzenie venv
 uv sync                        # instalacja zależności (z pyproject)
 uv run uvicorn app.main:app --reload --port 8099   # dev
-uv run pytest                  # testy (gdy powstaną)
+uv run pytest                  # testy (gate ruchu, ROI, API kamer)
 
 # Frontend (z katalogu frontend/, Node 24 przez nvm)
 npm install
@@ -159,6 +159,10 @@ docker run --rm -p 8099:8099 face-recognition:dev   # health: /api/health
 
 Backend serwuje statyczny front spod `STATIC_DIR` (env `FACE_STATIC_DIR`,
 domyślnie `backend/static`; w kontenerze `/app/static`).
+
+Env runtime: `FACE_DATA_DIR` (SQLite + dane, w add-onie `/data`), `FACE_PORT`
+(8099), `FACE_GO2RTC_URL` (baza API go2rtc, domyślnie `http://localhost:1984`),
+`FACE_SNAPSHOT_TIMEOUT` (s).
 
 ## Frontend: Next.js 16 — czytaj dokumentację z paczki
 
@@ -174,6 +178,9 @@ Korzeń repo = katalog add-onu (kontekst buildu Dockera widzi `backend/` i `fron
 
 ```
 backend/    FastAPI (app/), pyproject (uv, py3.12), venv w .venv, statyk w static/
+            app/: main (lifespan+routery), routes (API kamer), cameras (CRUD),
+            db (SQLite), schemas, roi (model+maska), snapshot (go2rtc),
+            motion (gate ruchu), worker (pętle akwizycji); tests/ (pytest)
 frontend/   Next.js 16 (App Router, Tailwind), output:'export' → build:backend
 docs/        przykłady (automatyzacje HA — dojdą w Fazie 4)
 config.yaml  manifest add-onu (Ingress, port 8099, mqtt:want, map data)

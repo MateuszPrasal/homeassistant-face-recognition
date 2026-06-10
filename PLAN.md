@@ -33,16 +33,25 @@ się odpalić i zobaczyć. Kontekst i decyzje: `CLAUDE.md`.
   z `X-Ingress-Path`) — Next 16 generuje absolutne `/_next/...`. Opcje
   konfiguracyjne (kamera, próg, interwał) dochodzą wraz z funkcjami.
 
-## Faza 1 — Akwizycja obrazu + ROI
+## Faza 1 — Akwizycja obrazu + ROI ✅ ZROBIONE
 
-- Klient snapshotów go2rtc (`/api/frame.jpeg`) — pobranie pojedynczej klatki.
-- Pętla w tle (osobny wątek/zadanie): co `interval_seconds` pobierz klatkę.
-- **ROI od początku**: kolumna `roi` w `cameras` (znormalizowany prostokąt/
-  wielokąt), ustawiany przez config/API (rysowanie w UI dopiero w Fazie 3).
-- Gate ruchu: różnica względem poprzedniej klatki, ograniczona do ROI (OpenCV).
-- Konfiguracja kamery (źródło, ROI, interwał) w SQLite + minimalny endpoint.
-- Cel fazy: w logach widać „ruch / brak ruchu" w ROI zgodnie z tym, co dzieje
-  się przed kamerą; bez modeli ML jeszcze.
+- [x] Klient snapshotów go2rtc (`snapshot.py`): `/api/frame.jpeg?src=<stream>`
+  lub pełny URL snapshotu. Synchroniczny `httpx.Client` (używany w wątkach).
+- [x] Pętla w tle (`worker.py`): wątek per kamera, co `interval_seconds` pobiera
+  klatkę; `WorkerManager` start/stop/reload (mutacja konfiguracji = reload).
+- [x] **ROI pierwszej klasy** (`roi.py`, kolumna `cameras.roi` jako JSON):
+  znormalizowany prostokąt/wielokąt, dyskryminowana unia pydantic, domyślnie
+  cały kadr. Ustawiany przez API (rysowanie w UI dopiero w Fazie 3).
+- [x] Gate ruchu (`motion.py`): różnica klatek ograniczona do ROI (kadr do bboxu
+  + maska wielokąta, OpenCV), frakcja zmienionych pikseli vs `motion_threshold`.
+- [x] Konfiguracja kamery w SQLite (`db.py`, `cameras.py`) + API CRUD
+  (`routes.py`): `/api/cameras`, `/api/cameras/{id}` (GET/PATCH/DELETE),
+  `/api/cameras/{id}/snapshot` (podgląd), `/api/status` (ruch/brak per kamera).
+- [x] Testy `pytest` (gate ruchu, ROI rect/poly, CRUD, walidacja). Weryfikacja
+  integracyjna: lokalny serwer JPEG → w logach „RUCH / brak ruchu".
+- Cel fazy osiągnięty: w logach widać „ruch / brak ruchu" w ROI; bez modeli ML.
+- Dług: `motion_threshold` to próg startowy (0.02) — strojenie na realnym
+  obrazie. Brak debounce/min. liczby klatek ruchu (dojdzie z cooldownem w Fazie 2).
 
 ## Faza 2 — Kaskada osoba → twarz + rozpoznawanie
 

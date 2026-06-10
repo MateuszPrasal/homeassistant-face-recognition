@@ -24,9 +24,15 @@ ENV PYTHONUNBUFFERED=1 \
 
 WORKDIR /app
 
+# opencv-python-headless wymaga libglib2.0-0 (slim go nie ma).
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends libglib2.0-0 \
+    && rm -rf /var/lib/apt/lists/*
+
 # Zależności backendu. TODO (Faza 2): zastąpić jawną listę lockfile (uv export).
 COPY backend/pyproject.toml ./
-RUN pip install --no-cache-dir fastapi "uvicorn[standard]"
+RUN pip install --no-cache-dir \
+        fastapi "uvicorn[standard]" httpx numpy opencv-python-headless
 
 # Kod backendu + zbudowany front + skrypt startowy.
 COPY backend/app ./app
