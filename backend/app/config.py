@@ -48,3 +48,19 @@ ALERTS_DIR = DATA_DIR / "alerts"
 # CORS — pod Ingress front i API są tym samym originem, więc domyślnie pusto.
 # Pod dev (Next na :3000, backend na :8099) ustaw FACE_CORS_ORIGINS=http://localhost:3000.
 CORS_ORIGINS = [o.strip() for o in os.getenv("FACE_CORS_ORIGINS", "").split(",") if o.strip()]
+
+# --- MQTT (Faza 4) ---
+# W add-onie dane brokera podaje Supervisor (services: mqtt:want) — pobieramy je
+# z http://supervisor/services/mqtt po SUPERVISOR_TOKEN. Lokalnie/dev: jawne env.
+# Kolejność: jeśli FACE_MQTT_HOST ustawiony → bierzemy env; inaczej → Supervisor.
+MQTT_ENABLE = os.getenv("FACE_MQTT_ENABLE", "1") != "0"
+MQTT_HOST = os.getenv("FACE_MQTT_HOST") or None
+MQTT_PORT = int(os.getenv("FACE_MQTT_PORT", "1883"))
+MQTT_USERNAME = os.getenv("FACE_MQTT_USERNAME") or None
+MQTT_PASSWORD = os.getenv("FACE_MQTT_PASSWORD") or None
+MQTT_SSL = os.getenv("FACE_MQTT_SSL", "0") == "1"
+# Prefiks tematów stanu serwisu i prefiks MQTT discovery HA.
+MQTT_BASE_TOPIC = os.getenv("FACE_MQTT_BASE_TOPIC", "face_recognition")
+MQTT_DISCOVERY_PREFIX = os.getenv("FACE_MQTT_DISCOVERY_PREFIX", "homeassistant")
+# Token Supervisora (ustawiany w add-onie HA OS); poza add-onem brak.
+SUPERVISOR_TOKEN = os.getenv("SUPERVISOR_TOKEN") or None

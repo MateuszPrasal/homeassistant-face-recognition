@@ -1,0 +1,70 @@
+# Przykładowe automatyzacje Home Assistant dla add-onu „Rozpoznawanie twarzy".
+#
+# Add-on publikuje encje przez MQTT discovery (jedno urządzenie HA = add-on),
+# per kamera trzy encje:
+#   - image:         camera_<id> — alert        → ostatni snapshot ALERT-u
+#   - sensor:        camera_<id> — rozpoznanie   → stan = outcome, atrybuty
+#                    (label, name, score, camera, camera_id)
+#   - binary_sensor: camera_<id> — niezweryfikowany → ON przy ALERT-cie (occupancy)
+#
+# Wyzwalacz bierzemy ze zmiany stanu sensora `outcome`. Na ALERT-cie
+# (`unknown_face` / `person_no_face`) dokładamy do pusha zdjęcie z encji `image`.
+#
+# WAŻNE: encje wyżej to przykład dla kamery o id=1 i domyślnej nazwie „Wejście".
+# Po dodaniu kamery w UI sprawdź realne entity_id w HA (Ustawienia → Urządzenia
+# i usługi → MQTT → urządzenie „Rozpoznawanie twarzy") i podmień poniżej.
+
+# --- 1. Push ze zdjęciem na ALERT (nieznana twarz albo osoba bez twarzy) ---
+- id: face_alert_push
+  alias: "Twarze: alert ze zdjęciem na telefon"
+  description: >-
+    Gdy przed kamerą pojawi się ktoś niezweryfikowany (nieznana twarz lub osoba
+    odwrócona/zasłonięta), wyślij push ze zdjęciem. Treść zależna od outcome.
+  trigger:
+    - platform: state
+      entity_id: sensor.wejscie_rozpoznanie
+      to: "unknown_face"
+    - platform: state
+      entity_id: sensor.wejscie_rozpoznanie
+      to: "person_no_face"
+  variables:
+    outcome: "{{ trigger.to_state.state }}"
+    # Atrybuty sensora niesie payload `attributes` (json_attributes_topic).
+    kamera: "{{ state_attr('sensor.wejscie_rozpoznanie', 'camera') | default('kamera') }}"
+    tytul: >-
+      {% if outcome == 'unknown_face' %}Nieznana osoba przy: {{ kamera }}
+      {% else %}Ktoś niezweryfikowany przy: {{ kamera }}{% endif %}
+    tresc: >-
+      {% if outcome == 'unknown_face' %}Wykryto twarz, której nie ma w bazie domowników.
+      {% else %}Wykryto osobę bez widocznej twarzy (odwrócona lub zasłonięta).{% endif %}
+  action:
+    # notify.mobile_app_* — podmień na realną nazwę usługi swojej aplikacji HA.
+    - service: notify.mobile_app_telefon
+      data:
+        title: "{{ tytul }}"
+        message: "{{ tresc }}"
+        data:
+          # Android: ścieżka do encji image przez proxy kamery HA.
+          # iOS: użyj `attachment` zamiast `image`.
+          image: "/api/image_proxy/image.wejscie_alert"
+          # Wyższy priorytet, żeby push przeszedł mimo trybu cichego (Android).
+          ttl: 0
+          priority: high
+          tag: face_alert_wejscie
+
+# --- 2. (Opcjonalnie) zaświeć światło / włącz scenę, gdy ktoś niezweryfikowany ---
+# Wariant na binary_sensor — wygodny do automatyk „świateł" bez wnikania w outcome.
+- id: face_alert_light
+  alias: "Twarze: zapal światło na niezweryfikowanego"
+  trigger:
+    - platform: state
+      entity_id: binary_sensor.wejscie_niezweryfikowany
+      to: "on"
+  condition:
+    - condition: state
+      entity_id: sun.sun
+      state: "below_horizon"
+  action:
+    - service: light.turn_on
+      target:
+        entity_id: light.wejscie

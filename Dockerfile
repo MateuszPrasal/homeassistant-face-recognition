@@ -35,7 +35,7 @@ RUN apt-get update \
 COPY backend/pyproject.toml ./
 RUN pip install --no-cache-dir \
         fastapi "uvicorn[standard]" httpx numpy opencv-python-headless \
-        onnxruntime python-multipart
+        onnxruntime python-multipart paho-mqtt
 
 # Kod backendu + zbudowany front + skrypt startowy.
 COPY backend/app ./app

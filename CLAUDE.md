@@ -120,14 +120,22 @@ do strojenia na realnych danych, wystawić jako konfigurowalny.
 
 ## Encje MQTT (discovery)
 
-- `image` — ostatni snapshot ALERT-u (źródło zdjęcia do pusha).
-- `event` / `sensor` — ostatnie rozpoznanie z polem `outcome`
-  (`ok` / `unknown_face` / `person_no_face`), nazwa (jeśli znana), score.
-- opcjonalnie `binary_sensor` — „obecny ktoś niezweryfikowany" (nieznana twarz
-  lub osoba bez twarzy).
+Jedno urządzenie HA (cały add-on), **trzy encje per kamera** (`app/mqtt.py`):
 
-Powiadomienie składa user w automatyzacji HA (wyzwalacz = zdarzenie/encja,
-akcja = `notify` ze zdjęciem). W repo trzymamy przykładowy YAML automatyzacji.
+- `image` — ostatni snapshot ALERT-u (źródło zdjęcia do pusha). Temat
+  `face_recognition/camera_<id>/image`.
+- `sensor` — ostatnie rozpoznanie: stan = `outcome`
+  (`ok` / `unknown_face` / `person_no_face`), atrybuty (`json_attributes_topic`):
+  `label`, `name` (jeśli znana), `score`, `camera`, `camera_id`.
+- `binary_sensor` (occupancy) — „ktoś niezweryfikowany": ON przy ALERT-cie
+  (nieznana twarz lub osoba bez twarzy), OFF przy `ok`.
+
+Config-i discovery są **retained**, publikowane też dla wyłączonej kamery (encje
+mają istnieć w HA niezależnie od pętli). Kasowanie kamery → pusty retained payload
+na config-ach (encje znikają z HA). Broker: env `FACE_MQTT_*` albo Supervisor.
+
+Powiadomienie składa user w automatyzacji HA (wyzwalacz = zmiana sensora `outcome`,
+akcja = `notify` ze zdjęciem z encji `image`). Przykład: `docs/automation.yaml`.
 
 ## Wydajność (RPi 5 — twarde ograniczenia)
 
@@ -181,6 +189,13 @@ Env runtime:
   `FACE_MATCH_THRESHOLD` (0.4 — cosine do galerii; ~0.35–0.5 do strojenia).
 - `FACE_CORS_ORIGINS` — lista originów CORS (po przecinku). Pod Ingress front i API
   to ten sam origin, więc domyślnie pusto. Pod dev ustaw `http://localhost:3000`.
+- MQTT: `FACE_MQTT_ENABLE` (`1`/`0`), `FACE_MQTT_HOST` (gdy ustawiony — pomija
+  Supervisora), `FACE_MQTT_PORT` (1883), `FACE_MQTT_USERNAME`, `FACE_MQTT_PASSWORD`,
+  `FACE_MQTT_SSL` (`1`/`0`), `FACE_MQTT_BASE_TOPIC` (`face_recognition`),
+  `FACE_MQTT_DISCOVERY_PREFIX` (`homeassistant`). W add-onie dane brokera podaje
+  Supervisor (`SUPERVISOR_TOKEN` + `http://supervisor/services/mqtt`, manifest ma
+  `mqtt:want`) — env nie trzeba. Broker niedostępny nie blokuje startu; publikacja
+  po prostu nie leci.
 
 Frontend (dev): Next na `:3000` bije w backend na `:8099` przez zmienną
 `NEXT_PUBLIC_API_BASE` (np. `http://localhost:8099`); backend musi mieć wtedy
@@ -206,7 +221,8 @@ backend/    FastAPI (app/), pyproject (uv, py3.12), venv w .venv, statyk w stati
             persons (repo osób/twarzy + galeria), db (SQLite), schemas,
             roi (model+maska), snapshot (go2rtc), motion (gate ruchu),
             matching (cosine brute-force), cascade (osoba→twarz→embedding→match),
-            worker (pętle akwizycji + cooldown + zapis ALERT-ów);
+            mqtt (klient paho + discovery + publikacja encji HA),
+            worker (pętle akwizycji + cooldown + zapis ALERT-ów + publikacja MQTT);
             app/ml/: models (pobieranie/ścieżki ONNX), person (MobileNet-SSD),
             face (SCRFD det_500m), recognize (ArcFace w600k_mbf), __init__ (roi_crop);
             tests/ (pytest, conftest = fixture client z kaskadą off)
@@ -216,7 +232,7 @@ frontend/   Next.js 16 (App Router, Tailwind), output:'export' → build:backend
             components/: ui (prymitywy), persons/ (PersonsView, PersonCard,
             FaceEnroll — detekcja+podgląd ramki), cameras/ (CamerasView,
             CameraCard, RoiEditor — rysowanie ROI prostokąt/wielokąt na canvas)
-docs/        przykłady (automatyzacje HA — dojdą w Fazie 4)
+docs/        automation.yaml (przykładowe automatyzacje HA: push ze zdjęciem)
 config.yaml  manifest add-onu (Ingress, port 8099, mqtt:want, map data)
 build.yaml   obraz bazowy per arch (python:3.12-slim)
 Dockerfile   multi-stage: node:24 (build frontu) → python:3.12-slim (runtime)

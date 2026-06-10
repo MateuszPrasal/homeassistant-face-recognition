@@ -106,15 +106,34 @@ się odpalić i zobaczyć. Kontekst i decyzje: `CLAUDE.md`.
 - Dług: „zrobić zdjęcie" z kamerki (getUserMedia) odłożone — upload pliku domyka
   obieg. Pełny Ingress (base href + absolutne `/_next/...`) nadal na Fazę 5.
 
-## Faza 4 — Integracja MQTT + powiadomienia HA
+## Faza 4 — Integracja MQTT + powiadomienia HA ✅ ZROBIONE
 
-- Klient MQTT, discovery encji: `image` (snapshot ALERT-u), `event`/`sensor`
-  (ostatnie rozpoznanie z polem `outcome`), opcjonalnie `binary_sensor`.
-- Publikacja przy ALERT-cie (`unknown_face` **lub** `person_no_face`): zdjęcie +
-  metadane (outcome, score, kamera, czas).
-- Przykładowa automatyzacja HA (`docs/`): wyzwalacz → `notify` ze zdjęciem (treść
-  pusha zależna od outcome: „nieznana osoba" vs „osoba bez widocznej twarzy").
-- Cel fazy: oba typy ALERT-u przed kamerą → push na telefon ze zdjęciem.
+- [x] Klient MQTT (`app/mqtt.py`, **paho-mqtt 2.x**): `connect()` z
+  `connect_async` + `loop_start` (broker niedostępny **nie blokuje** startu),
+  `will_set` offline, online po połączeniu. Dane brokera z env `FACE_MQTT_*`,
+  a w add-onie z Supervisora (`http://supervisor/services/mqtt`, `mqtt:want`).
+  `MqttPublisher` bierze wstrzyknięty klient paho — budowa tematów/payloadów
+  testowalna bez sieci.
+- [x] MQTT discovery, jedno urządzenie HA (add-on), **trzy encje per kamera**:
+  `image` (snapshot ALERT-u), `sensor` (stan = `outcome`, atrybuty: label, name,
+  score, camera, camera_id), `binary_sensor` (occupancy = „niezweryfikowany").
+  Config-i retained; discovery publikowane też dla wyłączonej kamery; kasowanie
+  kamery → pusty retained payload (encje znikają z HA).
+- [x] Spięcie z workerem: `ok` → `publish_recognition` (binary_sensor OFF);
+  ALERT (`unknown_face` / `person_no_face`) po cooldownie → `publish_alert`
+  (zdjęcie JPEG na temat `image` + stan + binary_sensor ON).
+- [x] Przykładowa automatyzacja HA (`docs/automation.yaml`): wyzwalacz na zmianie
+  `sensor … rozpoznanie`, push ze zdjęciem z encji `image`, treść zależna od
+  outcome („nieznana osoba" vs „osoba bez widocznej twarzy"); wariant na
+  `binary_sensor` (światło po zmroku).
+- [x] Testy (`tests/test_mqtt.py`, atrapa klienta paho): discovery 3 encji,
+  remove_discovery, publish_alert (zdjęcie + ON + atrybuty), publish_recognition
+  (OK → OFF), `resolve_config` (env first / None bez hosta i tokenu).
+- Cel fazy osiągnięty: oba typy ALERT-u przed kamerą → encje w HA + zdjęcie do
+  pusha. Realny smoke-test na brokerze odłożony (lokalnie brak mosquitto) —
+  pokrycie atrapą wystarcza na budowę tematów/payloadów.
+- Dług: brak realnego ACK z brokera w testach (atrapa). Strojenie cooldownu
+  `person_no_face` (otwarta kwestia) i retencja zdjęć ALERT-ów — Faza 6.
 
 ## Faza 5 — Pakowanie i hardening add-onu
 

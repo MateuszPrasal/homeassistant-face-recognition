@@ -16,6 +16,7 @@ import cv2
 from .cascade import Cascade
 from .config import ALERTS_DIR
 from .motion import MotionDetector, decode_jpeg
+from .mqtt import MqttPublisher
 from .schemas import Camera
 from .snapshot import SnapshotClient
 
@@ -42,6 +43,7 @@ class CameraStatus:
 class CameraWorker:
     camera: Camera
     cascade: Cascade | None = None
+    mqtt: MqttPublisher | None = None
     status: CameraStatus = field(init=False)
 
     def __post_init__(self) -> None:
@@ -108,6 +110,10 @@ class CameraWorker:
         if res.outcome == "ok":
             log.info("Kamera %s: OK — %s (score=%.2f)",
                      self.camera.id, res.known_name, res.top_score)
+            if self.mqtt is not None:
+                self.mqtt.publish_recognition(
+                    self.camera, "ok", res.known_name, res.top_score, unverified=False
+                )
             return
 
         # ALERT (unknown_face / person_no_face) — z cooldownem, żeby nie spamować.
@@ -118,6 +124,10 @@ class CameraWorker:
         self._last_alert_mono = now
         self.status.last_alert = time.time()
         path = self._save_alert(res.image)
+        if self.mqtt is not None:
+            self.mqtt.publish_alert(
+                self.camera, res.outcome, res.known_name, res.top_score, res.image
+            )
         log.warning(
             "Kamera %s: ALERT %s (osób=%d, twarzy=%d, score=%.2f) → %s",
             self.camera.id, res.outcome, res.persons, res.faces, res.top_score, path,
@@ -135,10 +145,11 @@ class CameraWorker:
 class WorkerManager:
     """Zarządza wątkami workerów. Mutacje konfiguracji kamery → reload workera."""
 
-    def __init__(self, cascade: Cascade | None = None) -> None:
+    def __init__(self, cascade: Cascade | None = None, mqtt: MqttPublisher | None = None) -> None:
         self._workers: dict[int, CameraWorker] = {}
         self._lock = threading.Lock()
         self._cascade = cascade
+        self._mqtt = mqtt
 
     @property
     def cascade(self) -> Cascade | None:
@@ -147,9 +158,13 @@ class WorkerManager:
     def start_camera(self, camera: Camera) -> None:
         with self._lock:
             self._stop_locked(camera.id)
+            # Discovery publikujemy też dla wyłączonej kamery — encje mają istnieć
+            # w HA niezależnie od tego, czy pętla akurat chodzi.
+            if self._mqtt is not None:
+                self._mqtt.publish_discovery(camera)
             if not camera.enabled:
                 return
-            worker = CameraWorker(camera, cascade=self._cascade)
+            worker = CameraWorker(camera, cascade=self._cascade, mqtt=self._mqtt)
             self._workers[camera.id] = worker
             worker.start()
 
@@ -159,8 +174,11 @@ class WorkerManager:
             worker.stop()
 
     def stop_camera(self, camera_id: int) -> None:
+        """Zatrzymanie + usunięcie encji HA (ścieżka kasowania kamery)."""
         with self._lock:
             self._stop_locked(camera_id)
+            if self._mqtt is not None:
+                self._mqtt.remove_discovery(camera_id)
 
     def start_all(self, cameras: list[Camera]) -> None:
         for camera in cameras:

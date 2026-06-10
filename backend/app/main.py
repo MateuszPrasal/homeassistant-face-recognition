@@ -15,6 +15,7 @@ from fastapi.staticfiles import StaticFiles
 
 from . import __version__
 from . import cameras as repo
+from . import config
 from . import db
 from .config import CORS_ORIGINS, ENABLE_CASCADE, STATIC_DIR
 from .routes import router as api_router
@@ -45,17 +46,51 @@ def _build_cascade():
         return None
 
 
+def _build_mqtt():
+    """Łączy z brokerem MQTT (env lub Supervisor). Przy braku/awarii → None."""
+    if not config.MQTT_ENABLE:
+        log.info("MQTT wyłączony (FACE_MQTT_ENABLE=0).")
+        return None
+    try:
+        from .mqtt import connect, resolve_config
+
+        cfg = resolve_config(
+            host=config.MQTT_HOST,
+            port=config.MQTT_PORT,
+            username=config.MQTT_USERNAME,
+            password=config.MQTT_PASSWORD,
+            ssl=config.MQTT_SSL,
+            supervisor_token=config.SUPERVISOR_TOKEN,
+        )
+        if cfg is None:
+            log.info("Brak konfiguracji MQTT (env/Supervisor) — publikacja wyłączona.")
+            return None
+        publisher = connect(
+            cfg,
+            base_topic=config.MQTT_BASE_TOPIC,
+            discovery_prefix=config.MQTT_DISCOVERY_PREFIX,
+        )
+        log.info("Klient MQTT uruchomiony (broker %s:%s).", cfg.host, cfg.port)
+        return publisher
+    except Exception as exc:  # noqa: BLE001
+        log.warning("Nie udało się uruchomić MQTT: %s — publikacja wyłączona.", exc)
+        return None
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Start: baza + modele + workery akwizycji. Stop: zatrzymaj wątki."""
+    """Start: baza + modele + MQTT + workery akwizycji. Stop: zatrzymaj wątki."""
     db.init_db()
-    manager = WorkerManager(cascade=_build_cascade())
+    mqtt = _build_mqtt()
+    manager = WorkerManager(cascade=_build_cascade(), mqtt=mqtt)
     app.state.manager = manager
     manager.start_all(repo.list_cameras())
     try:
         yield
     finally:
         manager.stop_all()
+        if mqtt is not None:
+            mqtt.close()
         db.close_db()
 
 
