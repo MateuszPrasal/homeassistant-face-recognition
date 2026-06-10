@@ -179,6 +179,13 @@ Env runtime:
   bez pobierania modeli).
 - Progi kaskady: `FACE_PERSON_CONF` (0.5), `FACE_DET_THRESH` (0.4 — detektor twarzy),
   `FACE_MATCH_THRESHOLD` (0.4 — cosine do galerii; ~0.35–0.5 do strojenia).
+- `FACE_CORS_ORIGINS` — lista originów CORS (po przecinku). Pod Ingress front i API
+  to ten sam origin, więc domyślnie pusto. Pod dev ustaw `http://localhost:3000`.
+
+Frontend (dev): Next na `:3000` bije w backend na `:8099` przez zmienną
+`NEXT_PUBLIC_API_BASE` (np. `http://localhost:8099`); backend musi mieć wtedy
+`FACE_CORS_ORIGINS=http://localhost:3000`. Bez tej zmiennej klient API używa
+ścieżek **względnych** — działa, gdy front serwuje sam FastAPI (build:backend).
 
 ## Frontend: Next.js 16 — czytaj dokumentację z paczki
 
@@ -204,6 +211,11 @@ backend/    FastAPI (app/), pyproject (uv, py3.12), venv w .venv, statyk w stati
             face (SCRFD det_500m), recognize (ArcFace w600k_mbf), __init__ (roi_crop);
             tests/ (pytest, conftest = fixture client z kaskadą off)
 frontend/   Next.js 16 (App Router, Tailwind), output:'export' → build:backend
+            lib/: api (klient REST, ścieżki względne pod Ingress), types
+            app/: page (SPA z zakładkami Osoby/Kamery — bez routingu klienta)
+            components/: ui (prymitywy), persons/ (PersonsView, PersonCard,
+            FaceEnroll — detekcja+podgląd ramki), cameras/ (CamerasView,
+            CameraCard, RoiEditor — rysowanie ROI prostokąt/wielokąt na canvas)
 docs/        przykłady (automatyzacje HA — dojdą w Fazie 4)
 config.yaml  manifest add-onu (Ingress, port 8099, mqtt:want, map data)
 build.yaml   obraz bazowy per arch (python:3.12-slim)

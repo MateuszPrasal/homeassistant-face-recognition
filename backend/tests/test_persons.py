@@ -26,3 +26,16 @@ def test_add_face_without_models_503(client: TestClient) -> None:
         files={"file": ("x.jpg", b"not-a-real-jpeg", "image/jpeg")},
     )
     assert resp.status_code == 503  # modele niezaładowane (kaskada off)
+
+
+def test_list_faces_empty_and_404(client: TestClient) -> None:
+    pid = client.post("/api/persons", json={"name": "Ola"}).json()["id"]
+    assert client.get(f"/api/persons/{pid}/faces").json() == []
+    assert client.get("/api/persons/999/faces").status_code == 404
+
+
+def test_detect_without_models_503(client: TestClient) -> None:
+    resp = client.post(
+        "/api/detect", files={"file": ("x.jpg", b"not-a-real-jpeg", "image/jpeg")}
+    )
+    assert resp.status_code == 503  # kaskada off

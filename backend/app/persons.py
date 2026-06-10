@@ -9,7 +9,7 @@ import sqlite3
 import numpy as np
 
 from . import db
-from .schemas import Person
+from .schemas import Face, Person
 
 
 def _row_to_person(row: sqlite3.Row) -> Person:
@@ -66,6 +66,16 @@ def add_face(person_id: int, embedding: np.ndarray) -> int:
             "INSERT INTO faces (person_id, embedding) VALUES (?, ?)", (person_id, blob)
         )
         return int(cur.lastrowid)
+
+
+def list_faces(person_id: int) -> list[Face]:
+    """Twarze danej osoby (meta, bez embeddingu) — do listy w UI."""
+    with db.transaction() as conn:
+        rows = conn.execute(
+            "SELECT id, person_id, created_at FROM faces WHERE person_id = ? ORDER BY id",
+            (person_id,),
+        ).fetchall()
+    return [Face(id=r["id"], person_id=r["person_id"], created_at=r["created_at"]) for r in rows]
 
 
 def delete_face(face_id: int) -> bool:

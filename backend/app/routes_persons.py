@@ -10,7 +10,7 @@ from fastapi import APIRouter, File, HTTPException, Request, Response, UploadFil
 from . import persons as repo
 from .cascade import Cascade
 from .motion import decode_jpeg
-from .schemas import Person, PersonCreate
+from .schemas import DetectedFace, DetectResult, Face, Person, PersonCreate
 
 router = APIRouter(prefix="/api")
 
@@ -45,6 +45,32 @@ def delete_person(person_id: int) -> Response:
     if not repo.delete_person(person_id):
         raise HTTPException(status_code=404, detail="Nie ma takiej osoby.")
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.get("/persons/{person_id}/faces", response_model=list[Face])
+def list_faces(person_id: int) -> list[Face]:
+    if repo.get_person(person_id) is None:
+        raise HTTPException(status_code=404, detail="Nie ma takiej osoby.")
+    return repo.list_faces(person_id)
+
+
+@router.post("/detect", response_model=DetectResult)
+async def detect(request: Request, file: UploadFile = File(...)) -> DetectResult:
+    """Wykrywa twarze na wgranym obrazie BEZ zapisu — podgląd ramki w UI."""
+    cascade = _cascade(request)
+    try:
+        frame = decode_jpeg(await file.read())
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    h, w = frame.shape[:2]
+    faces = [
+        DetectedFace(
+            x1=float(f.x1), y1=float(f.y1), x2=float(f.x2), y2=float(f.y2), score=round(f.score, 3)
+        )
+        for f in cascade.face.detect(frame)
+    ]
+    return DetectResult(width=int(w), height=int(h), faces=faces)
 
 
 @router.post("/persons/{person_id}/faces", status_code=status.HTTP_201_CREATED)

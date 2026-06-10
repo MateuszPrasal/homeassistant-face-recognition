@@ -53,3 +53,29 @@ class Person(BaseModel):
     name: str
     created_at: str
     face_count: int = 0
+
+
+class Face(BaseModel):
+    """Pojedynczy zapisany embedding twarzy (bez samego wektora — tylko meta)."""
+
+    id: int
+    person_id: int
+    created_at: str
+
+
+class DetectedFace(BaseModel):
+    """Wykryta twarz na podglądzie — współrzędne w pikselach wgranego obrazu."""
+
+    x1: float
+    y1: float
+    x2: float
+    y2: float
+    score: float
+
+
+class DetectResult(BaseModel):
+    """Wynik podglądu detekcji (POST /api/detect) — bez zapisu do bazy."""
+
+    width: int
+    height: int
+    faces: list[DetectedFace]

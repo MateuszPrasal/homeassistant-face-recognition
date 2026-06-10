@@ -44,3 +44,7 @@ MATCH_THRESHOLD = float(os.getenv("FACE_MATCH_THRESHOLD", "0.4"))  # cosine: zna
 
 # Katalog na snapshoty ALERT-ów (źródło zdjęcia dla MQTT w Fazie 4).
 ALERTS_DIR = DATA_DIR / "alerts"
+
+# CORS — pod Ingress front i API są tym samym originem, więc domyślnie pusto.
+# Pod dev (Next na :3000, backend na :8099) ustaw FACE_CORS_ORIGINS=http://localhost:3000.
+CORS_ORIGINS = [o.strip() for o in os.getenv("FACE_CORS_ORIGINS", "").split(",") if o.strip()]

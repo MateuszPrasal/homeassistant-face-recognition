@@ -9,13 +9,14 @@ import logging
 from contextlib import asynccontextmanager
 
 from fastapi import APIRouter, FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
 from . import __version__
 from . import cameras as repo
 from . import db
-from .config import ENABLE_CASCADE, STATIC_DIR
+from .config import CORS_ORIGINS, ENABLE_CASCADE, STATIC_DIR
 from .routes import router as api_router
 from .routes_persons import router as persons_router
 from .worker import WorkerManager
@@ -59,6 +60,14 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="Rozpoznawanie twarzy", version=__version__, lifespan=lifespan)
+
+if CORS_ORIGINS:
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=CORS_ORIGINS,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
 
 health = APIRouter(prefix="/api")
 

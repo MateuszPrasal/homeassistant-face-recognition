@@ -79,15 +79,32 @@ się odpalić i zobaczyć. Kontekst i decyzje: `CLAUDE.md`.
 - Cel fazy osiągnięty: w logach outcome „OK — <imię> (score)" / „ALERT unknown_face"
   / „ALERT person_no_face", snapshoty ALERT-ów na dysku, cooldown działa.
 
-## Faza 3 — UI (zarządzanie twarzami + ROI)
+## Faza 3 — UI (zarządzanie twarzami + ROI) ✅ ZROBIONE
 
-- Next.js (export) serwowane przez FastAPI; ścieżki względne pod Ingress.
-- Ekrany: lista osób, dodanie osoby + wgranie/zrobienie zdjęcia (podgląd
-  wykrytej twarzy przed zapisem), podgląd kadru z kamery, **rysowanie ROI** na
-  podglądzie (zapis do `cameras.roi`).
-- Endpointy API pod te akcje; zapis embeddingu przy dodawaniu twarzy.
-- Cel fazy: pełny obieg „dodaj osobę ze zdjęcia → ląduje w bazie → rozpoznawana"
-  oraz „narysuj ROI → kaskada liczy się tylko w nim".
+- [x] Next.js 16 (export) serwowany przez FastAPI. **Jedna trasa + zakładki**
+  (stan React, bez routingu klienta) — omija pułapkę Ingress z absolutnymi
+  ścieżkami `next/link` do czasu Fazy 5. Klient API (`lib/api.ts`) bije w ścieżki
+  **względne** (`api/...`), pod dev przez `NEXT_PUBLIC_API_BASE`.
+- [x] Ekran **Osoby**: lista z liczbą twarzy, dodawanie osoby, karta osoby z listą
+  twarzy (usuwanie pojedynczych), usuwanie osoby. Enrollment: wybór pliku →
+  `POST /api/detect` → **podgląd wykrytej twarzy** (ramka SVG, zielona = 1 twarz,
+  czerwona = 0/wiele) → zapis przez `POST /api/persons/{id}/faces`. Zapis tylko
+  przy dokładnie jednej twarzy; obsługa 503 (kaskada off).
+- [x] Ekran **Kamery**: dodawanie/lista/usuwanie, edytowalne ustawienia (źródło,
+  interwał, cooldown, próg ruchu, enabled), podgląd snapshotu z `/api/cameras/{id}/snapshot`
+  (fallback, gdy go2rtc niedostępny — 502).
+- [x] **Edytor ROI** (`RoiEditor`, canvas/SVG na podglądzie): prostokąt
+  przeciąganiem, wielokąt klikaniem (≥3 wierzchołki), „cały kadr", zapis do
+  `cameras.roi` przez PATCH. Współrzędne znormalizowane 0..1 (overlay `viewBox 0 0 1 1`).
+- [x] Endpointy pod UI: `GET /api/persons/{id}/faces`, `POST /api/detect`
+  (detekcja bez zapisu), CORS pod dev (`FACE_CORS_ORIGINS`). Testy backendu (25).
+- [x] Weryfikacja: build statyczny → FastAPI serwuje front na `/`; na realnych
+  modelach `/detect` (obama 1 twarz / two_people 2 twarze) i enroll (422 przy 2)
+  działają end-to-end.
+- Cel fazy osiągnięty: pełny obieg „dodaj osobę ze zdjęcia → baza → rozpoznawana"
+  i „narysuj ROI → zapis per kamera".
+- Dług: „zrobić zdjęcie" z kamerki (getUserMedia) odłożone — upload pliku domyka
+  obieg. Pełny Ingress (base href + absolutne `/_next/...`) nadal na Fazę 5.
 
 ## Faza 4 — Integracja MQTT + powiadomienia HA
 

@@ -1,9 +1,16 @@
 import type { NextConfig } from "next";
+import { fileURLToPath } from "node:url";
+import { dirname } from "node:path";
+
+const here = dirname(fileURLToPath(import.meta.url));
 
 const nextConfig: NextConfig = {
   // Statyczny eksport — bez runtime Node w produkcji (RAM na RPi).
   // Backend (FastAPI) serwuje wynikowy katalog `out/`.
   output: "export",
+
+  // Zbłąkany lockfile w katalogu domowym myli inferencję roota — przypnij na sztywno.
+  turbopack: { root: here },
 
   // Pod Ingress każda trasa jako katalog z index.html lepiej się serwuje,
   // a względne ścieżki assetów łatwiej rozwiązać przez <base href>.
