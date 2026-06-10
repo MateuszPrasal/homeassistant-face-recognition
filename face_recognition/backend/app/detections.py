@@ -9,10 +9,24 @@ leci na NULL (FK ON DELETE SET NULL), ale nazwa zostaje w historii.
 """
 
 import sqlite3
+from pathlib import Path
 
 from . import db
-from .config import MAX_DETECTIONS
+from .config import ALERTS_DIR, MAX_DETECTIONS
 from .schemas import Detection
+
+
+def _unlink_snapshot(path: str | None) -> None:
+    """Kasuje plik snapshotu przyciętego wpisu. Tylko w ALERTS_DIR (ochrona przed
+    wyjściem poza katalog); błędy IO ignorujemy — to sprzątanie, nie krytyczna ścieżka."""
+    if not path:
+        return
+    try:
+        resolved = Path(path).resolve()
+        if resolved.is_relative_to(ALERTS_DIR.resolve()) and resolved.is_file():
+            resolved.unlink()
+    except OSError:
+        pass
 
 
 def _row_to_detection(row: sqlite3.Row) -> Detection:
@@ -42,6 +56,7 @@ def add_detection(
     snapshot_path: str | None,
 ) -> int:
     """Dopisuje wpis i przycina log do MAX_DETECTIONS. Zwraca id wpisu."""
+    pruned_paths: list[str | None] = []
     with db.transaction() as conn:
         cur = conn.execute(
             """
@@ -63,7 +78,19 @@ def add_detection(
         )
         det_id = cur.lastrowid
         if MAX_DETECTIONS > 0:
-            # Zostaw ostatnie N (po id). Tanie przy skali domowej.
+            # Zostaw ostatnie N (po id). Tanie przy skali domowej. Ścieżki snapshotów
+            # przycinanych wpisów zbieramy, żeby skasować pliki po commicie.
+            pruned_paths = [
+                r["snapshot_path"]
+                for r in conn.execute(
+                    """
+                    SELECT snapshot_path FROM detections WHERE id <= (
+                        SELECT id FROM detections ORDER BY id DESC LIMIT 1 OFFSET ?
+                    )
+                    """,
+                    (MAX_DETECTIONS,),
+                ).fetchall()
+            ]
             conn.execute(
                 """
                 DELETE FROM detections WHERE id <= (
@@ -73,6 +100,8 @@ def add_detection(
                 """,
                 (MAX_DETECTIONS,),
             )
+    for path in pruned_paths:
+        _unlink_snapshot(path)
     return int(det_id)
 
 

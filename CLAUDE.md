@@ -111,9 +111,12 @@ Jeden kontener (add-on) zawiera:
 - `detections` (log, Faza 6) — id, camera_id, czas, `person_detected` (bool),
   `face_detected` (bool), `matched_person_id` (FK `persons` `ON DELETE SET NULL`),
   `matched_name` (zdenormalizowane — log przeżywa skasowanie osoby), score,
-  `outcome` (`ok` | `unknown_face` | `person_no_face`), `snapshot_path` (tylko gdy
-  ALERT faktycznie zapisany). Wpis przy **każdej wykrytej osobie**, niezależnie od
-  cooldownu — do strojenia progu cosine. Auto-przycinanie do `FACE_MAX_DETECTIONS`.
+  `outcome` (`ok` | `unknown_face` | `person_no_face`), `snapshot_path` (zapisywany
+  dla **każdego ALERT-u** — miniatura w logu zdarzeń; cooldown bramkuje tylko
+  publikację MQTT, nie zapis snapshotu. Dla `ok` brak — znana twarz nie potrzebuje
+  zdjęcia). Wpis przy **każdej wykrytej osobie**, niezależnie od cooldownu — do
+  strojenia progu cosine. Auto-przycinanie do `FACE_MAX_DETECTIONS` (przy przycięciu
+  kasowane też osierocone pliki snapshotów, żeby `/data` nie puchło).
 
 ROI to znormalizowany wielokąt/prostokąt per kamera (kolumna `roi` w `cameras`).
 Jest pierwszej klasy: konfigurowalny od Fazy 1 (najpierw przez config/API),

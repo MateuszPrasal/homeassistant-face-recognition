@@ -117,7 +117,6 @@ class CameraWorker:
             return
 
         snapshot_path: str | None = None
-        alert_published = False
 
         if res.outcome == "ok":
             log.info("Kamera %s: OK — %s (score=%.2f)",
@@ -127,15 +126,17 @@ class CameraWorker:
                     self.camera, "ok", res.known_name, res.top_score, unverified=False
                 )
         else:
-            # ALERT (unknown_face / person_no_face) — z cooldownem, żeby nie spamować.
+            # ALERT (unknown_face / person_no_face). Snapshot zapisujemy ZAWSZE —
+            # jest miniaturą w logu zdarzeń (tani, przydatny do strojenia). Cooldown
+            # bramkuje tylko publikację MQTT (push), żeby nie spamować telefonu.
+            snapshot_path = self._save_snapshot(res.image)
             now = time.monotonic()
             if now - self._last_alert_mono < self.camera.cooldown_seconds:
-                log.info("Kamera %s: ALERT %s wyciszony (cooldown)", self.camera.id, res.outcome)
+                log.info("Kamera %s: ALERT %s — MQTT wyciszony (cooldown), snapshot zapisany",
+                         self.camera.id, res.outcome)
             else:
                 self._last_alert_mono = now
                 self.status.last_alert = time.time()
-                snapshot_path = self._save_alert(res.image)
-                alert_published = True
                 if self.mqtt is not None:
                     self.mqtt.publish_alert(
                         self.camera, res.outcome, res.known_name, res.top_score, res.image
@@ -147,9 +148,8 @@ class CameraWorker:
                 )
 
         # Log detekcji (do strojenia progu) — przy każdej wykrytej osobie,
-        # niezależnie od cooldownu. Snapshot tylko gdy ALERT faktycznie zapisany.
+        # niezależnie od cooldownu.
         self._log_detection(res, snapshot_path)
-        _ = alert_published  # czytelność: rozróżnienie zapisanego ALERT-u
 
     def _log_detection(self, res, snapshot_path: str | None) -> None:
         try:
@@ -166,8 +166,9 @@ class CameraWorker:
         except Exception as exc:  # noqa: BLE001 — log nie może wywrócić pętli
             log.warning("Kamera %s: nie zapisano detekcji: %s", self.camera.id, exc)
 
-    def _save_alert(self, image) -> str:
-        """Zapisuje snapshot ALERT-u (źródło zdjęcia dla MQTT w Fazie 4)."""
+    def _save_snapshot(self, image) -> str:
+        """Zapisuje snapshot detekcji (miniatura w logu zdarzeń). Stare pliki
+        sprząta `detections.add_detection` przy przycinaniu logu."""
         ALERTS_DIR.mkdir(parents=True, exist_ok=True)
         path = ALERTS_DIR / f"camera_{self.camera.id}_{int(time.time())}.jpg"
         if image is not None:
